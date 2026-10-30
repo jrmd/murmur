@@ -6,6 +6,7 @@ public enum SpeechModel: String, CaseIterable, Identifiable, Sendable {
     case parakeetV3, parakeetV2
     public var id: String { rawValue }
     var asrVersion: AsrModelVersion { self == .parakeetV3 ? .v3 : .v2 }
+    public var shortName: String { self == .parakeetV3 ? "Parakeet v3" : "Parakeet v2" }
     public var displayName: String { self == .parakeetV3 ? "Parakeet TDT 0.6B v3" : "Parakeet TDT 0.6B v2" }
     public var detail: String { self == .parakeetV3 ? "NVIDIA · 25 European languages" : "NVIDIA · English only" }
     public var directory: URL { AsrModels.defaultCacheDirectory(for: asrVersion) }

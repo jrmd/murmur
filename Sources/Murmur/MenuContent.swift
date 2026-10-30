@@ -63,7 +63,7 @@ struct MenuContent: View {
                 .font(.system(size: 12.5))
                 HStack(spacing: 6) {
                     Circle().fill(controller.modelsReady ? Color.murmurGreen : Color.secondary.opacity(0.6)).frame(width: 6, height: 6)
-                    Text(controller.modelsReady ? "Parakeet v3 · \(controller.cleanupModel.shortName) ready · on-device" : "Local models not downloaded")
+                    Text(controller.modelsReady ? "\(controller.speechModel.shortName) · \(controller.cleanupModel.shortName) ready" : "Local models not downloaded")
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 .padding(.top, 1)

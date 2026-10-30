@@ -430,7 +430,7 @@ struct OnboardingView: View {
             cleanupPicker
             GlassEffectContainer(spacing: 12) {
                 VStack(spacing: 12) {
-                    ModelRow(symbol: "waveform", name: "Parakeet v3", detail: "Speech recognition", size: "~460 MB",
+                    ModelRow(symbol: "waveform", name: controller.speechModel.shortName, detail: "Speech recognition", size: "~460 MB",
                              state: parakeetDone ? .ready : modelsPhase == .downloading ? .downloading(fraction, started: downloadStart) : .idle)
                     ModelRow(symbol: "sparkles", name: cleanup.displayName, detail: "Clean-up: punctuation, filler words, corrections",
                              size: ByteCountFormatter.string(fromByteCount: cleanup.approximateBytes, countStyle: .file),
