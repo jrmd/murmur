@@ -1,0 +1,44 @@
+import cairosvg, os, io
+from PIL import Image
+import numpy as np
+BUBBLE="M7.0,13.75 A7.6,6.15 0 1,0 3.1,11.6 C3.5,13.3 3.4,14.9 2.6,16.3 C4.6,16.1 6.0,15.2 7.0,13.75 Z"
+WAVE="M4.5,9.0 C5.22,9.0 5.58,6.5 6.3,6.5 C7.02,6.5 6.93,9.6 7.65,9.6 C8.37,9.6 8.28,5.8 9.0,5.8 C9.72,5.8 9.63,9.6 10.35,9.6 C11.07,9.6 10.98,6.5 11.7,6.5 C12.42,6.5 12.78,9.0 13.5,9.0"
+outline=f'''<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
+  <path d="{BUBBLE}" fill="none" stroke="#000" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="{WAVE}" fill="none" stroke="#000" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+'''
+filled=f'''<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
+  <defs><mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="18" height="18">
+    <rect width="18" height="18" fill="#fff"/>
+    <path d="{WAVE}" fill="none" stroke="#000" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  </mask></defs>
+  <path d="{BUBBLE}" fill="#000" stroke="#000" stroke-width="1.3" stroke-linejoin="round" mask="url(#cut)"/>
+</svg>
+'''
+def _r(svg,px):
+    return np.asarray(Image.open(io.BytesIO(cairosvg.svg2png(bytestring=svg.encode(),output_width=px,output_height=px))).convert('RGBA'))[...,3].astype(float)/255
+def render(name,px):
+    if name=='MenuBarIcon':
+        a=_r(outline,px)
+    else:
+        hdr='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">'
+        b=_r(hdr+f'<path d="{BUBBLE}" fill="#000" stroke="#000" stroke-width="1.3" stroke-linejoin="round"/></svg>',px)
+        w=_r(hdr+f'<path d="{WAVE}" fill="none" stroke="#000" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>',px)
+        a=b*(1-w)
+    out=np.zeros((px,px,4),np.uint8); out[...,3]=(a*255).round().astype(np.uint8)
+    return Image.fromarray(out,'RGBA')
+for name,svg in [('MenuBarIcon',outline),('MenuBarIcon-Recording',filled)]:
+    open(f'menubar/{name}.svg','w').write(svg)
+    ims=f'menubar/{name}.imageset'; os.makedirs(ims,exist_ok=True)
+    files=[]
+    for scale in (1,2,3):
+        px=18*scale; fn=f'{name}{"" if scale==1 else f"@{scale}x"}.png'
+        im=render(name,px); im.save(f'menubar/{fn}'); im.save(f'{ims}/{fn}')
+        files.append((fn,scale))
+    import json
+    json.dump({"images":[{"filename":f,"idiom":"universal","scale":f"{s}x"} for f,s in files],
+               "info":{"author":"xcode","version":1},
+               "properties":{"template-rendering-intent":"template","preserves-vector-representation":False}},
+              open(f'{ims}/Contents.json','w'),indent=2)
+    render(name,360).save(f'/tmp/{name}-big.png')

@@ -1,0 +1,67 @@
+name: Murmur
+options:
+  bundleIdPrefix: com.bonusobjective
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.8.0
+  MurmurCore:
+    path: .
+targets:
+  Murmur:
+    type: application
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Sources/Murmur
+    dependencies:
+      - package: Sparkle
+        product: Sparkle
+      - package: MurmurCore
+        product: MurmurCore
+    postBuildScripts:
+      - name: Strip llama development headers from embedded framework
+        script: |
+          FRAMEWORK_PATH="${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}/Contents/Frameworks/llama.framework/Versions/A"
+          if [ -d "$FRAMEWORK_PATH" ]; then
+            python3 -c 'import os, shutil, sys; root=sys.argv[1]; [shutil.rmtree(os.path.join(root, name), ignore_errors=True) for name in ("Headers", "Modules")]' "$FRAMEWORK_PATH"
+          fi
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bonusobjective.murmur
+        PRODUCT_NAME: Murmur
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        SWIFT_VERSION: "5.0"
+        INFOPLIST_FILE: project/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: Packaging/Murmur.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: DQG6RVCCWV
+        CODE_SIGN_IDENTITY: "Apple Development"
+        ENABLE_HARDENED_RUNTIME: YES
+        ARCHS: arm64
+        REMOVE_HEADERS_FROM_EMBEDDED_BUNDLES: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/../Frameworks"
+      configs:
+        Debug:
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+        Release:
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
+schemes:
+  Murmur:
+    build:
+      targets:
+        Murmur: all
+    run:
+      config: Debug
+    archive:
+      config: Release

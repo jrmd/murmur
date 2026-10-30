@@ -1,0 +1,9 @@
+# Releasing Murmur
+
+Murmur uses Sparkle 2 and the `murmur-releases` R2 bucket. The public feed is https://updates.murmur.bonusobjective.com/appcast.xml. The `murmur` Sparkle signing key is stored in the macOS login Keychain. Back it up securely outside this machine: use `generate_keys --account murmur -x <secure-path>` from `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin`, then move the file to an encrypted backup and remove the local export. Never commit or share it. Losing this key can prevent existing users from updating.
+
+The Developer ID Application identity for team DQG6RVCCWV and a `notarytool` Keychain profile named `murmur` are required. Configure the profile using `xcrun notarytool store-credentials murmur`; enter credentials in its prompts. Wrangler must be logged in to the Cloudflare account containing the bucket.
+
+For each release, update `CFBundleShortVersionString` and increment the numeric `CFBundleVersion` in `project/Info.plist` (build numbers must increase, even across marketing versions). Run `Packaging/release.sh` to archive, verify, notarize, staple, zip and generate a signed appcast. Run `Packaging/release.sh --publish` instead to also upload the archive and then the feed. The script refuses to reuse an existing local release directory or a published archive. Inspect the generated feed and test updates on a separate Mac before directing users to a new version. Each run retains its output under `build/releases/`.
+
+The feed is served with no-cache headers; versioned archives are immutable. Cloudflare currently returns a four-hour browser cache lifetime for `Murmur-latest.zip`, despite the object's no-cache metadata, so the website download may lag a release. Keep historical archives available: existing feed entries may refer to them. Do not publish two releases concurrently. For subsequent releases, the script retrieves and preserves the current feed; it deliberately does not create delta updates.
