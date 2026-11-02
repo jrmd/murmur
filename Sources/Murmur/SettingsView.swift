@@ -191,7 +191,7 @@ private struct ModelsSettings: View {
                     ModelLine(
                         symbol: "waveform", tint: model == .parakeetV3 ? .murmurCoral : .gray,
                         title: model.displayName,
-                        detail: [model.detail, sizeText(installed: model.isInstalled, bytes: model.installedBytes), model == controller.speechModel && model.isInstalled ? "In use" : nil].compactMap { $0 }.joined(separator: " · "),
+                        detail: [model.detail, sizeText(installed: model.isInstalled, bytes: model.installedBytes, approximate: model.approximateBytes), model == controller.speechModel && model.isInstalled ? "In use" : nil].compactMap { $0 }.joined(separator: " · "),
                         state: state(installed: model.isInstalled, active: model == controller.speechModel),
                         busy: controller.isPreparing,
                         progress: controller.isPreparing && model == controller.speechModel ? controller.prepareFraction : nil,
@@ -254,7 +254,7 @@ private struct ModelsSettings: View {
 
     private func state(installed: Bool, active: Bool) -> ModelLine.State { installed ? (active ? .ready : .installed) : .missing }
 
-    private func sizeText(installed: Bool, bytes: Int64, approximate: Int64 = 461_000_000) -> String {
+    private func sizeText(installed: Bool, bytes: Int64, approximate: Int64) -> String {
         let value = installed && bytes > 0 ? bytes : approximate
         return (installed ? "" : "~") + ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
     }
@@ -511,6 +511,9 @@ private struct AboutSettings: View {
             Section("Built with") {
                 LabeledContent { LinkButton(title: "Licence", url: "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3") } label: {
                     SettingLabel(title: "Parakeet TDT 0.6B v3", subtitle: "Speech recognition by NVIDIA · CC BY 4.0")
+                }
+                LabeledContent { LinkButton(title: "Licence", url: "https://huggingface.co/moondream/parakeet-ultra") } label: {
+                    SettingLabel(title: "Parakeet Ultra", subtitle: "Post-trained v3 by moondream · CC BY 4.0")
                 }
                 LabeledContent { LinkButton(title: "Licence", url: CleanupModel.murmurClean.licenceURL.absoluteString) } label: {
                     SettingLabel(title: "Murmur Clean 350M", subtitle: "Clean-up model by Bonus Objective, based on LFM2.5")

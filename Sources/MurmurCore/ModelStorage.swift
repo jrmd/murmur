@@ -1,14 +1,41 @@
 import Foundation
 import FluidAudio
 
-/// Speech-recognition models Murmur can run. Both are Parakeet TDT 0.6B from NVIDIA, managed by FluidAudio.
+/// Speech-recognition models Murmur can run, all Parakeet TDT 0.6B variants managed by FluidAudio.
 public enum SpeechModel: String, CaseIterable, Identifiable, Sendable {
     case parakeetV3, parakeetV2
+    /// moondream's post-training of v3: same architecture and languages, more accurate.
+    case parakeetUltra
     public var id: String { rawValue }
-    var asrVersion: AsrModelVersion { self == .parakeetV3 ? .v3 : .v2 }
-    public var shortName: String { self == .parakeetV3 ? "Parakeet v3" : "Parakeet v2" }
-    public var displayName: String { self == .parakeetV3 ? "Parakeet TDT 0.6B v3" : "Parakeet TDT 0.6B v2" }
-    public var detail: String { self == .parakeetV3 ? "NVIDIA · 25 European languages" : "NVIDIA · English only" }
+    var asrVersion: AsrModelVersion {
+        switch self {
+        case .parakeetV3: .v3
+        case .parakeetV2: .v2
+        case .parakeetUltra: .ultra
+        }
+    }
+    public var shortName: String {
+        switch self {
+        case .parakeetV3: "Parakeet v3"
+        case .parakeetV2: "Parakeet v2"
+        case .parakeetUltra: "Parakeet Ultra"
+        }
+    }
+    public var displayName: String {
+        switch self {
+        case .parakeetV3: "Parakeet TDT 0.6B v3"
+        case .parakeetV2: "Parakeet TDT 0.6B v2"
+        case .parakeetUltra: "Parakeet Ultra"
+        }
+    }
+    public var detail: String {
+        switch self {
+        case .parakeetV3: "NVIDIA · 25 European languages"
+        case .parakeetV2: "NVIDIA · English only"
+        case .parakeetUltra: "moondream · post-trained v3 · 25 languages"
+        }
+    }
+    public var approximateBytes: Int64 { self == .parakeetUltra ? 630_000_000 : 461_000_000 }
     public var directory: URL { AsrModels.defaultCacheDirectory(for: asrVersion) }
     public var isInstalled: Bool { AsrModels.modelsExist(at: directory, version: asrVersion) }
     public var installedBytes: Int64 { ModelStorage.bytes(at: directory) }

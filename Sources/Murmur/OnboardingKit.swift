@@ -376,3 +376,35 @@ struct LevelBars: View {
         .animation(.easeOut(duration: 0.08), value: level)
     }
 }
+
+/// Equal-width segmented choice in the onboarding style; the system segmented control sizes itself to its labels.
+struct ChoiceControl<Option: Hashable & Identifiable>: View {
+    let options: [Option]
+    @Binding var selection: Option
+    let label: KeyPath<Option, String>
+    var width: CGFloat = 372
+    var enabled = true
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(options) { option in
+                let selected = option == selection
+                Button { selection = option } label: {
+                    Text(option[keyPath: label])
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(selected ? Color.white : OB.secondary)
+                        .lineLimit(1).minimumScaleFactor(0.85)
+                        .frame(maxWidth: .infinity).frame(height: 28)
+                        .background(selected ? Color.murmurCoral : .clear, in: .capsule)
+                        .contentShape(.capsule)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3).frame(width: width)
+        .background(OB.text.opacity(0.07), in: .capsule)
+        .overlay(Capsule().strokeBorder(OB.cardStroke, lineWidth: 1))
+        .animation(.easeOut(duration: 0.18), value: selection)
+        .opacity(enabled ? 1 : 0.5).allowsHitTesting(enabled)
+    }
+}

@@ -430,7 +430,7 @@ struct OnboardingView: View {
             modelPickers
             GlassEffectContainer(spacing: 12) {
                 VStack(spacing: 12) {
-                    ModelRow(symbol: "waveform", name: controller.speechModel.shortName, detail: "Speech recognition", size: "~460 MB",
+                    ModelRow(symbol: "waveform", name: controller.speechModel.shortName, detail: "Speech recognition", size: ByteCountFormatter.string(fromByteCount: controller.speechModel.approximateBytes, countStyle: .file),
                              state: parakeetDone ? .ready : modelsPhase == .downloading ? .downloading(fraction, started: downloadStart) : .idle)
                     ModelRow(symbol: "sparkles", name: cleanup.displayName, detail: "Clean-up: punctuation, filler words, corrections",
                              size: ByteCountFormatter.string(fromByteCount: cleanup.approximateBytes, countStyle: .file),
@@ -482,11 +482,7 @@ struct OnboardingView: View {
             HStack(spacing: 16) {
                 Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(OB.text)
                 Spacer(minLength: 8)
-                Picker(title, selection: selection) {
-                    ForEach(options) { Text($0[keyPath: label]).tag($0) }
-                }
-                .labelsHidden().pickerStyle(.segmented).frame(width: 250)
-                .disabled(locked)
+                ChoiceControl(options: options, selection: selection, label: label, enabled: !locked)
             }
             Text(summary).font(.system(size: 12.5)).foregroundStyle(OB.secondary)
         }
