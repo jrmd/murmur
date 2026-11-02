@@ -258,6 +258,17 @@ final class AppController: ObservableObject {
         storageRevision += 1
     }
 
+    /// Switches the speech model without downloading it; used while onboarding, where the download is its own step.
+    func chooseSpeechModel(_ model: SpeechModel) async {
+        guard !isPreparing, model != speechModel else { return }
+        UserDefaults.standard.set(model.rawValue, forKey: "speechModel")
+        speechModel = model
+        await pipeline.setSpeechModel(model)
+        pipelineLoaded = false
+        if !model.isInstalled { markModelsNotReady() }
+        storageRevision += 1
+    }
+
     func selectSpeechModel(_ model: SpeechModel) async {
         guard !isPreparing else { return }
         UserDefaults.standard.set(model.rawValue, forKey: "speechModel")

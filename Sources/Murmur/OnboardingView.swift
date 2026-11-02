@@ -426,8 +426,8 @@ struct OnboardingView: View {
         let fraction = debugFraction ?? controller.prepareFraction
         return content(spacing: 12) {
             StepHeader(symbol: "arrow.down.circle", eyebrow: "Step 6 of 7 · Local models", title: "Download models", pill: pill)
-            Lead("Two small models that live on your Mac. Download once and dictation works offline.")
-            cleanupPicker
+            Lead("Choose your models, then download them. They live on your Mac, so dictation works offline.")
+            modelPickers
             GlassEffectContainer(spacing: 12) {
                 VStack(spacing: 12) {
                     ModelRow(symbol: "waveform", name: controller.speechModel.shortName, detail: "Speech recognition", size: "~460 MB",
@@ -461,20 +461,35 @@ struct OnboardingView: View {
         }
     }
 
-    private var cleanupPicker: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 16) {
-                Text("Clean-up model").font(.system(size: 14, weight: .semibold)).foregroundStyle(OB.text)
-                Spacer(minLength: 8)
-                Picker("Clean-up model", selection: Binding(get: { controller.cleanupModel }, set: { model in Task { await controller.chooseCleanupModel(model) } })) {
-                    ForEach(CleanupModel.allCases) { Text($0.displayName).tag($0) }
-                }
-                .labelsHidden().pickerStyle(.segmented).frame(width: 250)
-                .disabled(modelsPhase == .downloading)
-            }
-            Text(controller.cleanupModel.summary).font(.system(size: 12.5)).foregroundStyle(OB.secondary)
+    private var modelPickers: some View {
+        let locked = modelsPhase == .downloading
+        return VStack(alignment: .leading, spacing: 10) {
+            modelPickerRow("Speech model", summary: controller.speechModel.detail,
+                           selection: Binding(get: { controller.speechModel }, set: { model in Task { await controller.chooseSpeechModel(model) } }),
+                           options: SpeechModel.allCases, label: \.shortName, locked: locked)
+            Divider().opacity(0.5)
+            modelPickerRow("Clean-up model", summary: controller.cleanupModel.summary,
+                           selection: Binding(get: { controller.cleanupModel }, set: { model in Task { await controller.chooseCleanupModel(model) } }),
+                           options: CleanupModel.allCases, label: \.displayName, locked: locked)
         }
         .padding(.horizontal, 18).padding(.vertical, 11).obCard()
+    }
+
+    private func modelPickerRow<Model: Hashable & Identifiable>(
+        _ title: String, summary: String, selection: Binding<Model>, options: [Model], label: KeyPath<Model, String>, locked: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 16) {
+                Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(OB.text)
+                Spacer(minLength: 8)
+                Picker(title, selection: selection) {
+                    ForEach(options) { Text($0[keyPath: label]).tag($0) }
+                }
+                .labelsHidden().pickerStyle(.segmented).frame(width: 250)
+                .disabled(locked)
+            }
+            Text(summary).font(.system(size: 12.5)).foregroundStyle(OB.secondary)
+        }
     }
 
     private func isOffline(_ message: String) -> Bool {
