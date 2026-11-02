@@ -52,8 +52,11 @@ targets:
           - "$(inherited)"
           - "@executable_path/../Frameworks"
       configs:
+        # Debug builds run as a separate app so they get their own permissions, settings and menu bar item.
         Debug:
           SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+          PRODUCT_BUNDLE_IDENTIFIER: com.bonusobjective.murmur.dev
+          PRODUCT_NAME: "Murmur (dev)"
         Release:
           SWIFT_OPTIMIZATION_LEVEL: "-O"
 schemes:

@@ -25,7 +25,9 @@ public struct DictionaryEntry: Codable, Identifiable, Equatable, Sendable {
     public let fileURL: URL
     @Published public private(set) var persistenceError: String?
     public init(fileURL: URL? = nil) {
-        self.fileURL = fileURL ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Murmur/dictionary.json")
+        // The dev build (bundle id ending in ".dev") keeps its own dictionary so testing never edits the real one.
+        let folder = Bundle.main.bundleIdentifier?.hasSuffix(".dev") == true ? "Murmur (dev)" : "Murmur"
+        self.fileURL = fileURL ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("\(folder)/dictionary.json")
         if FileManager.default.fileExists(atPath: self.fileURL.path) {
             do { entries = try JSONDecoder().decode([DictionaryEntry].self, from: Data(contentsOf: self.fileURL)) }
             catch { entries = []; persistenceError = error.localizedDescription }

@@ -3,7 +3,12 @@ import Foundation
 import Sparkle
 
 final class UpdateController: ObservableObject {
+    #if DEBUG
+    /// The dev build never checks for updates, so a published release can't replace it.
+    private let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+    #else
     private let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+    #endif
     private var observations = Set<AnyCancellable>()
     @Published private(set) var canCheck = false
     @Published private(set) var lastChecked: Date?

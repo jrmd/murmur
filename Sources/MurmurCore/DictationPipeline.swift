@@ -97,8 +97,9 @@ public actor DictationPipeline {
     /// Choosing a different speech model unloads the current one; call `prepare()` to load it.
     public func setSpeechModel(_ model: SpeechModel) { if model != speechModel { speechModel = model; manager = nil } }
     /// Choosing a different clean-up model unloads the current one; call `prepare()` to download and load the new one.
-    public func setCleanupModel(_ model: CleanupModel) async {
-        guard swappableTidier, model != cleanupModel else { return }
+    /// `reload` rebuilds the tidier even for the same model, for a custom model whose file changed.
+    public func setCleanupModel(_ model: CleanupModel, reload: Bool = false) async {
+        guard swappableTidier, reload || model != cleanupModel else { return }
         await tidier.unload()
         cleanupModel = model; tidier = LlamaTidier(model: model)
     }

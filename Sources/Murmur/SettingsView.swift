@@ -177,6 +177,11 @@ private struct PermissionRow: View {
 private struct ModelsSettings: View {
     @ObservedObject var controller: AppController
     @State private var confirm: Removal?
+    #if DEBUG
+    @State private var editingCustom = ProcessInfo.processInfo.arguments.contains("-obCustomSheet")
+    #else
+    @State private var editingCustom = false
+    #endif
 
     private enum Removal: Identifiable {
         case speech(SpeechModel), cleanup(CleanupModel)
@@ -200,7 +205,7 @@ private struct ModelsSettings: View {
                 }
             }
             Section {
-                ForEach(CleanupModel.allCases) { model in
+                ForEach(CleanupModel.builtIn) { model in
                     let active = model == controller.cleanupModel
                     ModelLine(
                         symbol: "sparkles", tint: model == .murmurClean ? .murmurCoral : Color(red: 0.45, green: 0.4, blue: 1),
@@ -211,6 +216,7 @@ private struct ModelsSettings: View {
                         primary: { Task { await controller.selectCleanupModel(model) } },
                         remove: { confirm = .cleanup(model) })
                 }
+                customRow
                 if controller.cleanupModel.supportsLevels {
                     LabeledContent {
                         Picker("Strictness", selection: $controller.cleanupLevel) {
@@ -236,12 +242,35 @@ private struct ModelsSettings: View {
         }
         .formStyle(.grouped)
         .frame(height: 560)
+        .sheet(isPresented: $editingCustom) { CustomCleanupSheet(controller: controller, existing: controller.customCleanup) }
         .confirmationDialog(confirmTitle, isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }), titleVisibility: .visible) {
             Button("Remove", role: .destructive) {
                 let item = confirm; confirm = nil
                 Task { switch item { case .speech(let m): await controller.removeSpeechModel(m); case .cleanup(let m): await controller.removeCleanupModel(m); case nil: break } }
             }
         } message: { Text("You can download it again at any time. Dictation won’t work until the models are back.") }
+    }
+
+    @ViewBuilder private var customRow: some View {
+        let model = CleanupModel.custom
+        if controller.customCleanup != nil {
+            let active = model == controller.cleanupModel
+            ModelLine(
+                symbol: "slider.horizontal.3", tint: .orange,
+                title: model.displayName,
+                detail: [model.detail, sizeText(installed: model.isInstalled, bytes: model.installedBytes, approximate: model.approximateBytes), active && model.isInstalled ? "In use" : nil].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "),
+                state: state(installed: model.isInstalled, active: active),
+                busy: controller.isPreparing && active, locked: controller.isPreparing, progress: nil,
+                primary: { Task { await controller.selectCleanupModel(model) } },
+                remove: { confirm = .cleanup(model) },
+                edit: { editingCustom = true })
+        } else {
+            LabeledContent {
+                Button("Choose…") { editingCustom = true }.controlSize(.small).disabled(controller.isPreparing)
+            } label: {
+                SettingLabel(title: "Custom model", subtitle: "Run any GGUF model from Hugging Face with your own prompt, for example one that covers more languages.")
+            }
+        }
     }
 
     private var confirmTitle: String {
@@ -256,6 +285,7 @@ private struct ModelsSettings: View {
 
     private func sizeText(installed: Bool, bytes: Int64, approximate: Int64) -> String {
         let value = installed && bytes > 0 ? bytes : approximate
+        guard value > 0 else { return "" }
         return (installed ? "" : "~") + ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
     }
 
@@ -282,6 +312,7 @@ private struct ModelLine: View {
     let progress: Double?
     let primary: () -> Void
     let remove: () -> Void
+    var edit: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -297,6 +328,7 @@ private struct ModelLine: View {
                 }
             }
             Spacer(minLength: 8)
+            if let edit { Button("Edit…", action: edit).controlSize(.small).disabled(busy || locked) }
             switch state {
             case .ready:
                 StatusPill(kind: .ready)

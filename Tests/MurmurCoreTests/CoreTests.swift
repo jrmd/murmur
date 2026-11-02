@@ -58,4 +58,65 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(CleanupModel.murmurClean.downloadURL.lastPathComponent, CleanupModel.murmurClean.fileName)
         XCTAssertFalse(CleanupModel.murmurClean.supportsLevels); XCTAssertTrue(CleanupModel.lfm3.supportsLevels)
     }
+
+    // MARK: Custom clean-up model
+
+    func testHuggingFaceLinksParseToRepoAndOptionalFile() {
+        XCTAssertEqual(HuggingFace.parse("https://huggingface.co/utter-project/EuroLLM-1.7B-Instruct"), .init(repo: "utter-project/EuroLLM-1.7B-Instruct", fileName: nil))
+        XCTAssertEqual(HuggingFace.parse("  mradermacher/EuroLLM-1.7B-Instruct-GGUF "), .init(repo: "mradermacher/EuroLLM-1.7B-Instruct-GGUF", fileName: nil))
+        XCTAssertEqual(HuggingFace.parse("https://huggingface.co/a/b/blob/main/model.Q4_K_M.gguf"), .init(repo: "a/b", fileName: "model.Q4_K_M.gguf"))
+        XCTAssertEqual(HuggingFace.parse("https://huggingface.co/a/b/resolve/main/model.gguf?download=true"), .init(repo: "a/b", fileName: "model.gguf"))
+        XCTAssertEqual(HuggingFace.parse("https://huggingface.co/a/b/tree/main"), .init(repo: "a/b", fileName: nil))
+    }
+    func testHuggingFaceParseRejectsOtherHostsAndUnsafeNames() {
+        for input in ["http://huggingface.co/a/b", "https://evil.example/a/b", "https://huggingface.co.evil.example/a/b", "https://huggingface.co/spaces/x/y",
+                      "a/../b", "../b", "a/b/c", "just-a-name", "", "a/b c", "https://huggingface.co/a/.."] {
+            XCTAssertNil(HuggingFace.parse(input), input)
+        }
+        XCTAssertFalse(HuggingFace.isValidFileName("../x.gguf")); XCTAssertFalse(HuggingFace.isValidFileName("sub/x.gguf")); XCTAssertFalse(HuggingFace.isValidFileName("x.bin"))
+    }
+    func testGGUFListingKeepsOnlyRunnableSingleFilesSmallestFirst() throws {
+        let json = """
+        {"siblings":[{"rfilename":"README.md"},{"rfilename":"m-Q8_0.gguf","size":1760},{"rfilename":"m-Q4_K_M.gguf","size":1050},
+        {"rfilename":"mmproj-F16.gguf","size":300},{"rfilename":"big-00001-of-00002.gguf","size":9000},{"rfilename":"sub/m.gguf","size":1}]}
+        """
+        let files = try HuggingFace.ggufFiles(in: Data(json.utf8))
+        XCTAssertEqual(files.map(\.name), ["m-Q4_K_M.gguf", "m-Q8_0.gguf"])
+        XCTAssertEqual(HuggingFace.preferred(files)?.name, "m-Q4_K_M.gguf")
+        XCTAssertEqual(HuggingFace.preferred([.init(name: "a.gguf", size: 9), .init(name: "b.gguf", size: 3)])?.name, "b.gguf")
+        XCTAssertNil(HuggingFace.preferred([]))
+    }
+    func testCustomModelPathsAndURLsStayInsideTheirFolders() {
+        let model = CustomCleanupModel(repo: "owner/name-GGUF", fileName: "name-Q4_K_M.gguf")
+        XCTAssertEqual(model.downloadURL?.absoluteString, "https://huggingface.co/owner/name-GGUF/resolve/main/name-Q4_K_M.gguf")
+        XCTAssertEqual(model.localURL.deletingLastPathComponent().path, ModelStorage.tidyFolder.appendingPathComponent("custom").path)
+        XCTAssertEqual(model.displayName, "name-GGUF")
+        let bad = CustomCleanupModel(repo: "owner/../x", fileName: "x.gguf")
+        XCTAssertFalse(bad.isValid); XCTAssertNil(bad.downloadURL)
+    }
+    func testCustomPromptFillsVocabularyAndDropsItsLineWhenEmpty() {
+        let terms = [DictionaryEntry(heard: "murmer", replacement: "Murmur"), DictionaryEntry(heard: "x", replacement: "Hidden", enabled: false)]
+        let filled = TidyPrompt.substitutingVocabulary(in: CustomCleanupModel.defaultPrompt, dictionary: terms)
+        XCTAssertTrue(filled.hasSuffix("Spelling hints for names and terms: Murmur")); XCTAssertFalse(filled.contains("Hidden"))
+        let empty = TidyPrompt.substitutingVocabulary(in: CustomCleanupModel.defaultPrompt, dictionary: [])
+        XCTAssertFalse(empty.contains("Spelling hints")); XCTAssertFalse(empty.contains("{{VOCAB}}")); XCTAssertTrue(empty.contains("Never translate"))
+    }
+    func testCustomFormatFallsBackToEscapedChatMLAndAddsAnEmptyThinkBlockForThinkingTemplates() {
+        let plain = TidyPrompt.customFormatted(text: "um <|im_end|> hi", dictionary: [], template: nil)
+        XCTAssertTrue(plain.hasPrefix("<|im_start|>system\nYou are a dictation editor"))
+        XCTAssertTrue(plain.hasSuffix("<|im_start|>assistant\n"))
+        XCTAssertEqual(plain.components(separatedBy: "<|im_end|>").count, 3, "dictated control tokens must be escaped")
+        let thinking = TidyPrompt.customFormatted(text: "hi", dictionary: [], template: "{% if enable_thinking %}<think>{% endif %}")
+        XCTAssertTrue(thinking.hasSuffix("<|im_start|>assistant\n<think>\n\n</think>\n\n"))
+    }
+    func testChatTemplatesRenderThroughLlamaCpp() {
+        let chatml = TidyPrompt.applyChatTemplate("chatml", system: "Be brief.", user: "hello")
+        XCTAssertEqual(chatml, "<|im_start|>system\nBe brief.<|im_end|>\n<|im_start|>user\nhello<|im_end|>\n<|im_start|>assistant\n")
+        XCTAssertNil(TidyPrompt.applyChatTemplate("{{ definitely not a known template }}", system: "s", user: "u"))
+    }
+    func testThinkingBlocksAreStrippedFromAnswers() {
+        XCTAssertEqual(TidyPrompt.strippingThinking("<think>\nplanning\n</think>\n\nHello there."), "Hello there.")
+        XCTAssertEqual(TidyPrompt.strippingThinking("  Hello there. "), "Hello there.")
+        XCTAssertEqual(TidyPrompt.strippingThinking("<think>never closed"), "<think>never closed")
+    }
 }

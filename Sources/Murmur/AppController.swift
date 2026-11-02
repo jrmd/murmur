@@ -32,6 +32,8 @@ final class AppController: ObservableObject {
         }
     }
     @Published private(set) var cleanupModel = AppController.storedCleanupModel()
+    /// The Hugging Face model and prompt behind `CleanupModel.custom`, once the user has set one up.
+    @Published private(set) var customCleanup = CustomCleanupModel.stored
     @Published private(set) var speechModel = SpeechModel(rawValue: UserDefaults.standard.string(forKey: "speechModel") ?? "") ?? .parakeetV3
     /// Bumped whenever model files change on disk so views re-read install state and sizes.
     @Published private(set) var storageRevision = 0
@@ -75,7 +77,7 @@ final class AppController: ObservableObject {
 
     /// New installs get Murmur Clean; anyone who already downloaded LFM3 and never chose keeps it.
     private static func storedCleanupModel() -> CleanupModel {
-        if let stored = UserDefaults.standard.string(forKey: "cleanupModel"), let model = CleanupModel(rawValue: stored) { return model }
+        if let stored = UserDefaults.standard.string(forKey: "cleanupModel"), let model = CleanupModel(rawValue: stored), model != .custom || CustomCleanupModel.stored != nil { return model }
         return CleanupModel.lfm3.isInstalled && !CleanupModel.murmurClean.isInstalled ? .lfm3 : .murmurClean
     }
 
@@ -145,7 +147,9 @@ final class AppController: ObservableObject {
         #endif
         DispatchQueue.main.async { [weak self] in
             let debugOnboarding = ProcessInfo.processInfo.arguments.contains("-obStep")
-            guard let self, debugOnboarding || !self.setupComplete || !UserDefaults.standard.bool(forKey: "onboardingFinished") || self.resumeSetupAfterInputGrant else { return }
+            guard let self else { return }
+            let modelsPending = !self.modelsReady && !self.modelsSkipped
+            guard debugOnboarding || !self.permissionsReady || modelsPending || !UserDefaults.standard.bool(forKey: "onboardingFinished") || self.resumeSetupAfterInputGrant else { return }
             self.resumeSetupAfterInputGrant = false
             self.showOnboarding = true
         }
@@ -191,13 +195,15 @@ final class AppController: ObservableObject {
         guard !isPreparing else { return }
         isPreparing = true
         errorMessage = nil
-        do { try await pipeline.prepare(); pipelineLoaded = true; modelsReady = true; UserDefaults.standard.set(true, forKey: "modelsReady") }
+        do { try await pipeline.prepare(); pipelineLoaded = true; modelsReady = true; UserDefaults.standard.set(true, forKey: "modelsReady"); UserDefaults.standard.removeObject(forKey: "modelsSkipped") }
         catch { errorMessage = error.localizedDescription; modelsReady = false; UserDefaults.standard.set(false, forKey: "modelsReady") }
         isPreparing = false
     }
 
     func beginRecording() async {
         guard permissionsReady else { showOnboarding = true; return }
+        // After "Skip for now" the shortcut must not start a large download on its own.
+        if !modelsReady && modelsSkipped { errorMessage = "Download the models in Settings › Models to start dictating."; return }
         errorMessage = nil
         if !pipelineLoaded {
             await prepare()
@@ -279,6 +285,24 @@ final class AppController: ObservableObject {
         storageRevision += 1
     }
 
+    /// Saves the custom clean-up model and prompt, switches to it, and downloads it if needed.
+    /// A prompt-only edit takes effect on the next dictation; a different file replaces the old download.
+    func saveCustomCleanup(_ model: CustomCleanupModel) async {
+        guard !isPreparing, model.isValid else { return }
+        let previous = CustomCleanupModel.stored
+        let fileChanged = previous?.localURL != model.localURL
+        if fileChanged && cleanupModel == .custom { await pipeline.unloadCleanup() }
+        CustomCleanupModel.store(model)
+        customCleanup = model
+        if fileChanged, let previous { try? FileManager.default.removeItem(at: previous.localURL) }
+        if fileChanged && cleanupModel == .custom {
+            await pipeline.setCleanupModel(.custom, reload: true)
+            pipelineLoaded = false
+            if !CleanupModel.custom.isInstalled { markModelsNotReady() }
+        }
+        await selectCleanupModel(.custom)
+    }
+
     func removeSpeechModel(_ model: SpeechModel) async {
         guard !isPreparing else { return }
         if model == speechModel {
@@ -333,6 +357,10 @@ final class AppController: ObservableObject {
     }
 
     func finishOnboarding() { UserDefaults.standard.set(true, forKey: "onboardingFinished") }
+
+    /// True when the user chose "Skip for now" on the models step and has not downloaded them since.
+    var modelsSkipped: Bool { UserDefaults.standard.bool(forKey: "modelsSkipped") }
+    func skipModels() { UserDefaults.standard.set(true, forKey: "modelsSkipped") }
 
     func relaunch() {
         UserDefaults.standard.set(true, forKey: "murmurRelaunchAfterInputGrant")

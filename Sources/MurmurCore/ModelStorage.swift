@@ -41,44 +41,78 @@ public enum SpeechModel: String, CaseIterable, Identifiable, Sendable {
     public var installedBytes: Int64 { ModelStorage.bytes(at: directory) }
 }
 
-/// Clean-up models Murmur can run, both as GGUF files through llama.cpp.
+/// Clean-up models Murmur can run, all as GGUF files through llama.cpp.
 public enum CleanupModel: String, CaseIterable, Identifiable, Sendable {
     /// Murmur's own LoRA fine-tune of LFM2.5-350M, trained on one fixed prompt.
     case murmurClean
     /// Liquid AI's general-purpose LFM3 1.7B, steered by prompt and strictness level.
     case lfm3
+    /// A GGUF the user picked from Hugging Face, run with their own system prompt (see `CustomCleanupModel`).
+    case custom
     public var id: String { rawValue }
-    public var displayName: String { self == .murmurClean ? "Murmur Clean 350M" : "LFM3 1.7B" }
-    public var shortName: String { self == .murmurClean ? "Murmur Clean" : "LFM3" }
+    /// The models Murmur ships a download for; `custom` is configured by the user.
+    public static var builtIn: [CleanupModel] { [.murmurClean, .lfm3] }
+    private var customModel: CustomCleanupModel? { CustomCleanupModel.stored }
+    public var displayName: String {
+        switch self {
+        case .murmurClean: "Murmur Clean 350M"
+        case .lfm3: "LFM3 1.7B"
+        case .custom: customModel?.displayName ?? "Custom model"
+        }
+    }
+    public var shortName: String {
+        switch self {
+        case .murmurClean: "Murmur Clean"
+        case .lfm3: "LFM3"
+        case .custom: "Custom"
+        }
+    }
     public var detail: String {
         switch self {
         case .murmurClean: "Bonus Objective · trained for dictation · English"
         case .lfm3: "Liquid AI · general purpose · runs on your Mac"
+        case .custom: customModel.map { "\($0.repo) · \($0.fileName)" } ?? "Any GGUF model from Hugging Face"
         }
     }
     public var summary: String {
         switch self {
         case .murmurClean: "Small, fast and trained for exactly this job. English only."
         case .lfm3: "Larger and general purpose, with adjustable strictness."
+        case .custom: "Your own model and prompt. Quality and languages depend on the model you choose."
         }
     }
-    /// Only the general-purpose model is steered by `CleanupLevel`; Murmur Clean always runs the prompt it was trained on.
+    /// Only the general-purpose model is steered by `CleanupLevel`; Murmur Clean always runs the prompt it was trained on
+    /// and a custom model runs the prompt the user wrote.
     public var supportsLevels: Bool { self == .lfm3 }
-    public var fileName: String { self == .murmurClean ? "murmur-clean-q8_0.gguf" : "LFM3-1.7B-Q4_K_M.gguf" }
+    public var fileName: String {
+        switch self {
+        case .murmurClean: "murmur-clean-q8_0.gguf"
+        case .lfm3: "LFM3-1.7B-Q4_K_M.gguf"
+        case .custom: customModel?.fileName ?? "custom.gguf"
+        }
+    }
     public var downloadURL: URL {
         switch self {
         case .murmurClean: URL(string: "https://huggingface.co/bonusobjective/murmur-clean-350m/resolve/main/murmur-clean-q8_0.gguf")!
         case .lfm3: URL(string: "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/resolve/main/LFM3-1.7B-Q4_K_M.gguf")!
+        case .custom: customModel?.downloadURL ?? URL(string: "https://huggingface.co")!
         }
     }
-    public var approximateBytes: Int64 { self == .murmurClean ? 379_220_000 : 1_099_627_808 }
-    public var url: URL { ModelStorage.tidyFolder.appendingPathComponent(fileName) }
+    public var approximateBytes: Int64 {
+        switch self {
+        case .murmurClean: 379_220_000
+        case .lfm3: 1_099_627_808
+        case .custom: customModel?.sizeBytes ?? 0
+        }
+    }
+    public var url: URL { self == .custom ? (customModel?.localURL ?? ModelStorage.tidyFolder.appendingPathComponent("custom/none.gguf")) : ModelStorage.tidyFolder.appendingPathComponent(fileName) }
     public var isInstalled: Bool { FileManager.default.fileExists(atPath: url.path) }
     public var installedBytes: Int64 { ModelStorage.bytes(at: url) }
     public var licenceURL: URL {
         switch self {
         case .murmurClean: URL(string: "https://huggingface.co/bonusobjective/murmur-clean-350m/blob/main/LICENSE")!
         case .lfm3: URL(string: "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/blob/main/LICENSE")!
+        case .custom: customModel?.repoURL ?? URL(string: "https://huggingface.co")!
         }
     }
 }

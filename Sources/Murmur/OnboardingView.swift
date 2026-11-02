@@ -93,7 +93,8 @@ struct OnboardingView: View {
                 case .inputMonitoring: inputMonitoringStep
                 case .shortcut: shortcutStep
                 case .models: modelsStep
-                case .practice: practiceStep
+                case .practice:
+                    if controller.modelsReady || DebugPreview.practice != nil { practiceStep } else { modelsSkippedStep }
                 }
             }
             .id(step)
@@ -142,6 +143,10 @@ struct OnboardingView: View {
                         .buttonStyle(GlassCapsuleStyle())
                 }
                 Spacer()
+                if step == .models, modelsPhase == .notDownloaded || modelsPhase == .failed {
+                    Button("Skip for now") { controller.skipModels(); go(.practice) }
+                        .buttonStyle(GlassCapsuleStyle(small: true))
+                }
                 primaryButton
             }
         }
@@ -424,17 +429,23 @@ struct OnboardingView: View {
         let cleanupActive = modelsPhase == .downloading && desc.contains(cleanup.shortName)
         let debugFraction: Double? = DebugPreview.models == "downloading" ? 0.64 : nil
         let fraction = debugFraction ?? controller.prepareFraction
-        return content(spacing: 12) {
+        let speech = controller.speechModel
+        let speechSize = ByteCountFormatter.string(fromByteCount: speech.approximateBytes, countStyle: .file)
+        let cleanupSize = ByteCountFormatter.string(fromByteCount: cleanup.approximateBytes, countStyle: .file)
+        let locked = modelsPhase == .downloading
+        return content(spacing: 12, top: 40) {
             StepHeader(symbol: "arrow.down.circle", eyebrow: "Step 6 of 7 · Local models", title: "Download models", pill: pill)
-            Lead("Choose your models, then download them. They live on your Mac, so dictation works offline.")
-            modelPickers
+            Lead("Pick your models and download them once. Dictation then works offline.")
             GlassEffectContainer(spacing: 12) {
                 VStack(spacing: 12) {
-                    ModelRow(symbol: "waveform", name: controller.speechModel.shortName, detail: "Speech recognition", size: ByteCountFormatter.string(fromByteCount: controller.speechModel.approximateBytes, countStyle: .file),
-                             state: parakeetDone ? .ready : modelsPhase == .downloading ? .downloading(fraction, started: downloadStart) : .idle)
-                    ModelRow(symbol: "sparkles", name: cleanup.displayName, detail: "Clean-up: punctuation, filler words, corrections",
-                             size: ByteCountFormatter.string(fromByteCount: cleanup.approximateBytes, countStyle: .file),
-                             state: modelsPhase == .ready ? .ready : cleanupActive ? .downloading(nil, started: nil) : modelsPhase == .downloading ? .queued : .idle)
+                    ModelRow(symbol: "waveform", name: "Speech model", detail: "\(speech.detail) · \(speechSize)", size: speechSize,
+                             state: parakeetDone ? .ready : modelsPhase == .downloading ? .downloading(fraction, started: downloadStart) : .idle,
+                             choices: AnyView(ChoiceControl(options: SpeechModel.allCases, selection: Binding(get: { controller.speechModel }, set: { model in Task { await controller.chooseSpeechModel(model) } }),
+                                                            label: \.shortName, enabled: !locked)))
+                    ModelRow(symbol: "sparkles", name: "Clean-up model", detail: "\(cleanup.summary) · \(cleanupSize)", size: cleanupSize,
+                             state: modelsPhase == .ready ? .ready : cleanupActive ? .downloading(nil, started: nil) : modelsPhase == .downloading ? .queued : .idle,
+                             choices: AnyView(ChoiceControl(options: CleanupModel.builtIn, selection: Binding(get: { controller.cleanupModel }, set: { model in Task { await controller.chooseCleanupModel(model) } }),
+                                                            label: \.displayName, enabled: !locked)))
                 }
             }
             if modelsPhase == .failed, let message = controller.errorMessage {
@@ -461,36 +472,29 @@ struct OnboardingView: View {
         }
     }
 
-    private var modelPickers: some View {
-        let locked = modelsPhase == .downloading
-        return VStack(alignment: .leading, spacing: 10) {
-            modelPickerRow("Speech model", summary: controller.speechModel.detail,
-                           selection: Binding(get: { controller.speechModel }, set: { model in Task { await controller.chooseSpeechModel(model) } }),
-                           options: SpeechModel.allCases, label: \.shortName, locked: locked)
-            Divider().opacity(0.5)
-            modelPickerRow("Clean-up model", summary: controller.cleanupModel.summary,
-                           selection: Binding(get: { controller.cleanupModel }, set: { model in Task { await controller.chooseCleanupModel(model) } }),
-                           options: CleanupModel.allCases, label: \.displayName, locked: locked)
-        }
-        .padding(.horizontal, 18).padding(.vertical, 11).obCard()
-    }
-
-    private func modelPickerRow<Model: Hashable & Identifiable>(
-        _ title: String, summary: String, selection: Binding<Model>, options: [Model], label: KeyPath<Model, String>, locked: Bool
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 16) {
-                Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(OB.text)
-                Spacer(minLength: 8)
-                ChoiceControl(options: options, selection: selection, label: label, enabled: !locked)
-            }
-            Text(summary).font(.system(size: 12.5)).foregroundStyle(OB.secondary)
-        }
-    }
-
     private func isOffline(_ message: String) -> Bool {
         let m = message.lowercased()
         return m.contains("offline") || m.contains("internet") || m.contains("network connection") || m.contains("could not connect")
+    }
+
+    // MARK: 7 Finish without models
+
+    private var modelsSkippedStep: some View {
+        let total = ByteCountFormatter.string(fromByteCount: controller.speechModel.approximateBytes + controller.cleanupModel.approximateBytes, countStyle: .file)
+        return content {
+            StepHeader(symbol: "checkmark.seal", eyebrow: "Step 7 of 7 · Finish", title: "Almost there")
+            Lead("You skipped the model download, so dictation is off for now. Download the models any time in Settings › Models and Murmur starts working.")
+            HStack(spacing: 12) {
+                IconChip(symbol: "arrow.down.circle")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Models not downloaded").font(.system(size: 14, weight: .semibold)).foregroundStyle(OB.text)
+                    Text("Speech recognition and clean-up, about \(total) in total.").font(.system(size: 12.5)).foregroundStyle(OB.secondary)
+                }
+                Spacer(minLength: 8)
+                Button("Open Settings") { NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) }.buttonStyle(GlassCapsuleStyle(small: true))
+            }
+            .padding(14).obCard()
+        }
     }
 
     // MARK: 7 Practice
@@ -565,9 +569,9 @@ struct OnboardingView: View {
 
     // MARK: Shared
 
-    @ViewBuilder private func content<Content: View>(spacing: CGFloat = 16, @ViewBuilder _ body: () -> Content) -> some View {
+    @ViewBuilder private func content<Content: View>(spacing: CGFloat = 16, top: CGFloat = 52, @ViewBuilder _ body: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: spacing) { body() }
-            .padding(.horizontal, 56).padding(.top, 52)
+            .padding(.horizontal, 56).padding(.top, top)
             .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
@@ -595,19 +599,22 @@ private struct ModelRow: View {
     let symbol: String
     let name: String
     let detail: String
+    /// Used for "x% of size" while downloading.
     let size: String
     let state: RowState
+    /// The model picker for this row.
+    let choices: AnyView
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 14) {
-                IconChip(symbol: symbol, size: 36, radius: 11)
-                VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 14) {
+                    IconChip(symbol: symbol, size: 36, radius: 11)
                     Text(name).font(.system(size: 15, weight: .semibold)).foregroundStyle(OB.text)
-                    Text(detail).font(.system(size: 12.5)).foregroundStyle(OB.secondary)
+                    Spacer(minLength: 8)
+                    choices
                 }
-                Spacer()
-                Text(size).font(.system(size: 12.5, design: .monospaced)).foregroundStyle(OB.tertiary)
+                Text(detail).font(.system(size: 12.5)).foregroundStyle(OB.secondary).lineLimit(1).padding(.leading, 50)
             }
             switch state {
             case .idle:

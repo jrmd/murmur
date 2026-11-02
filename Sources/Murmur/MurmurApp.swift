@@ -11,8 +11,13 @@ struct MurmurApp: App {
         MenuBarExtra {
             MenuContent(controller: controller, updates: updates)
         } label: {
-            Image(nsImage: BrandAssets.menuBarImage(recording: controller.statusText == "Listening"))
-                .accessibilityLabel(controller.menuTitle)
+            HStack(spacing: 3) {
+                Image(nsImage: BrandAssets.menuBarImage(recording: controller.statusText == "Listening"))
+                #if DEBUG
+                Text("dev")
+                #endif
+            }
+            .accessibilityLabel(controller.menuTitle)
         }
         .menuBarExtraStyle(.window)
 

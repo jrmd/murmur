@@ -53,15 +53,18 @@ public enum TidyPrompt {
     """
 
     static func murmurCleanSystem(dictionary: [DictionaryEntry]) -> String {
+        substitutingVocabulary(in: murmurCleanTemplate, dictionary: dictionary)
+    }
+
+    /// Fills `{{VOCAB}}` from the enabled dictionary entries. With no vocabulary the line is dropped
+    /// rather than left as a dangling instruction.
+    static func substitutingVocabulary(in template: String, dictionary: [DictionaryEntry]) -> String {
+        let placeholder = CustomCleanupModel.vocabularyPlaceholder
         let terms = dictionary.filter { $0.enabled && !$0.replacement.isEmpty }.map(\.replacement)
-        var prompt = murmurCleanTemplate
-        if terms.isEmpty {
-            // No vocabulary: drop the line rather than leave a dangling instruction.
-            prompt = prompt.split(separator: "\n", omittingEmptySubsequences: false).filter { !$0.contains("{{VOCAB}}") }.joined(separator: "\n")
-        } else {
-            prompt = prompt.replacingOccurrences(of: "{{VOCAB}}", with: terms.joined(separator: ", "))
+        guard !terms.isEmpty else {
+            return template.split(separator: "\n", omittingEmptySubsequences: false).filter { !$0.contains(placeholder) }.joined(separator: "\n")
         }
-        return prompt
+        return template.replacingOccurrences(of: placeholder, with: terms.joined(separator: ", "))
     }
 
     /// Plain ChatML with no thinking block and no worked example, matching how Murmur Clean was trained.
@@ -76,7 +79,57 @@ public enum TidyPrompt {
         switch model {
         case .murmurClean: murmurCleanFormatted(text: text, dictionary: dictionary)
         case .lfm3: formatted(text: text, dictionary: dictionary, level: level)
+        case .custom: customFormatted(text: text, dictionary: dictionary, template: nil)
         }
+    }
+
+    /// `<` is escaped so dictated special-token spellings can never become control tokens.
+    static func escapingControlTokens(_ text: String) -> String { text.replacingOccurrences(of: "<", with: "\\u003c") }
+
+    static func chatML(system: String, user: String) -> String {
+        "<|im_start|>system\n\(system)<|im_end|>\n<|im_start|>user\n\(user)<|im_end|>\n<|im_start|>assistant\n"
+    }
+
+    /// Renders system + user through a model's own chat template. nil when llama.cpp does not recognise the template
+    /// (it supports a fixed list of formats, not arbitrary Jinja), so callers can fall back to ChatML.
+    static func applyChatTemplate(_ template: String, system: String, user: String) -> String? {
+        system.withCString { systemContent in
+            user.withCString { userContent in
+                "system".withCString { systemRole in
+                    "user".withCString { userRole in
+                        let messages = [llama_chat_message(role: systemRole, content: systemContent), llama_chat_message(role: userRole, content: userContent)]
+                        var capacity = 2 * (system.utf8.count + user.utf8.count) + 512
+                        for _ in 0..<2 {
+                            var buffer = [CChar](repeating: 0, count: capacity)
+                            let needed = llama_chat_apply_template(template, messages, messages.count, true, &buffer, Int32(capacity))
+                            if needed < 0 { return nil }
+                            if Int(needed) > capacity { capacity = Int(needed) + 1; continue }
+                            return String(decoding: buffer.prefix(Int(needed)).map { UInt8(bitPattern: $0) }, as: UTF8.self)
+                        }
+                        return nil
+                    }
+                }
+            }
+        }
+    }
+
+    /// The user's prompt in the model's own chat format. Thinking-capable templates get an empty think block, as with
+    /// Qwen3's non-thinking mode, so the model answers straight away.
+    static func customFormatted(text: String, dictionary: [DictionaryEntry], template: String?) -> String {
+        let configured = CustomCleanupModel.stored?.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let prompt = configured.isEmpty ? CustomCleanupModel.defaultPrompt : configured
+        let system = escapingControlTokens(substitutingVocabulary(in: prompt, dictionary: dictionary))
+        let user = escapingControlTokens(text)
+        var formatted = template.flatMap { applyChatTemplate($0, system: system, user: user) } ?? chatML(system: system, user: user)
+        if template?.contains("<think>") == true { formatted += "<think>\n\n</think>\n\n" }
+        return formatted
+    }
+
+    /// Drops a leading `<think>…</think>` block that a reasoning model emitted before its answer.
+    static func strippingThinking(_ text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("<think>"), let end = trimmed.range(of: "</think>") else { return trimmed }
+        return String(trimmed[end.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// LFM3 chat template with thinking disabled. `<` is escaped in user text so dictated
@@ -107,10 +160,12 @@ public actor LlamaTidier: TextTidying {
     deinit { if let model { llama_model_free(model) } }
     public func prepare() async throws {
         if model != nil { return }
+        if cleanupModel == .custom, CustomCleanupModel.stored == nil { throw CoreError.message("Choose a custom clean-up model in Settings first.") }
         if !FileManager.default.fileExists(atPath: modelURL.path) {
             try FileManager.default.createDirectory(at: modelURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             let (temporary, response) = try await URLSession.shared.download(from: cleanupModel.downloadURL)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw CoreError.message("Could not download \(cleanupModel.displayName).") }
+            guard Self.isGGUF(temporary) else { try? FileManager.default.removeItem(at: temporary); throw CoreError.message("\(cleanupModel.displayName) is not a GGUF model file.") }
             try FileManager.default.moveItem(at: temporary, to: modelURL)
         }
         llama_backend_init()
@@ -118,13 +173,24 @@ public actor LlamaTidier: TextTidying {
         guard let loaded = llama_model_load_from_file(modelURL.path, params) else { throw CoreError.message("Could not load \(cleanupModel.displayName) at \(modelURL.path).") }
         model = loaded
     }
+    /// GGUF files start with the ASCII magic "GGUF"; this catches an HTML error page saved in its place.
+    private static func isGGUF(_ url: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        return (try? handle.read(upToCount: 4)) == Data("GGUF".utf8)
+    }
     public func unload() async { if let model { llama_model_free(model); self.model = nil } }
     public func tidy(_ text: String, dictionary: [DictionaryEntry], level: CleanupLevel) async throws -> String {
         guard let model else { throw CoreError.message("Tidy model is not prepared.") }
         var params = llama_context_default_params(); params.n_ctx = 4096; params.n_batch = 512
         guard let context = llama_init_from_model(model, params) else { throw CoreError.message("Could not initialize the \(cleanupModel.shortName) context.") }
         defer { llama_free(context) }
-        let formatted = TidyPrompt.formatted(model: cleanupModel, text: text, dictionary: dictionary, level: level)
+        let formatted: String
+        if cleanupModel == .custom {
+            formatted = TidyPrompt.customFormatted(text: text, dictionary: dictionary, template: llama_model_chat_template(model, nil).map { String(cString: $0) })
+        } else {
+            formatted = TidyPrompt.formatted(model: cleanupModel, text: text, dictionary: dictionary, level: level)
+        }
         let vocab = llama_model_get_vocab(model)!
         var tokens = [llama_token](repeating: 0, count: formatted.utf8.count + 16)
         let count = llama_tokenize(vocab, formatted, Int32(formatted.utf8.count), &tokens, Int32(tokens.count), true, true)
@@ -152,11 +218,12 @@ public actor LlamaTidier: TextTidying {
             guard n >= 0 else { throw CoreError.message("\(cleanupModel.shortName) token decoding failed.") }
             bytes.append(contentsOf: piece.prefix(Int(n)).map { UInt8(bitPattern: $0) })
             // LFM3 sometimes closes a (disabled) think block and repeats its answer; the text before the tag is the answer.
-            if bytes.suffix(8).elementsEqual("</think>".utf8) { bytes.removeLast(8); ended = true; break }
+            if cleanupModel != .custom, bytes.suffix(8).elementsEqual("</think>".utf8) { bytes.removeLast(8); ended = true; break }
             guard llama_decode(context, llama_batch_get_one(&token, 1)) == 0 else { throw CoreError.message("\(cleanupModel.shortName) generation failed.") }
         }
         guard ended else { throw CoreError.message("\(cleanupModel.shortName) output exceeded its token limit.") }
-        let output = String(decoding: bytes, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        var output = String(decoding: bytes, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleanupModel == .custom { output = TidyPrompt.strippingThinking(output) }
         guard !output.isEmpty else { throw CoreError.message("\(cleanupModel.shortName) returned empty output.") }
         return output
     }

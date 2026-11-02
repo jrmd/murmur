@@ -29,4 +29,30 @@ final class TidyLiveTests: XCTestCase {
             }
         }
     }
+
+    /// MURMUR_LIVE_CUSTOM=owner/repo:file.gguf runs that Hugging Face model with the default custom prompt on multilingual samples.
+    func testCustomModelKeepsTheLanguage() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["MURMUR_LIVE"] == "1")
+        let spec = try XCTUnwrap(ProcessInfo.processInfo.environment["MURMUR_LIVE_CUSTOM"], "set MURMUR_LIVE_CUSTOM=owner/repo:file.gguf")
+        let parts = spec.split(separator: ":", maxSplits: 1).map(String.init)
+        let model = CustomCleanupModel(repo: parts[0], fileName: parts[1])
+        XCTAssertTrue(model.isValid)
+        CustomCleanupModel.store(model)
+        defer { CustomCleanupModel.store(nil) }
+        let tidier = LlamaTidier(model: .custom)
+        try await tidier.prepare()
+        let samples = [
+            "äh also wir müssen die Rechnung bis Freitag schicken nein warte bis Donnerstag und kannst du die Buchhaltung in Kopie setzen",
+            "euh donc je pense qu'on devrait euh déplacer la réunion à jeudi parce que personne n'est libre mercredi",
+            "eh pues necesitamos enviar el informe el viernes no mejor el lunes y avisa a Marta",
+            "no więc eee myślę że powinniśmy przenieść spotkanie na czwartek bo w środę nikt nie ma czasu",
+            "um can you pick up oat milk no wait two oat milks and uh some dog food on the way home",
+        ]
+        for sample in samples {
+            let out = try await tidier.tidy(sample, dictionary: [])
+            print("CUSTOM IN : \(sample)\nCUSTOM OUT: \(out)")
+            XCTAssertFalse(out.isEmpty)
+        }
+        await tidier.unload()
+    }
 }
