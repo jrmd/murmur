@@ -13,7 +13,7 @@ public struct DictationResult: Sendable {
         self.raw = raw; self.final = final; self.cleanupFailure = cleanupFailure; self.cleanupDuration = cleanupDuration
     }
 }
-public enum DictationState: Sendable, Equatable { case idle, preparing, listening, transcribing, tidying, error(String) }
+public enum DictationState: Sendable, Equatable { case idle, preparing, listening, transcribing, tidying, error(DictationError) }
 /// Something the app has to react to while a recording is running.
 public enum PipelineEvent: Sendable, Equatable { case maxDurationReached }
 public struct PrepareProgress: Sendable, CustomStringConvertible {
@@ -69,11 +69,11 @@ private final class Capture: @unchecked Sendable {
         let source = input.outputFormat(forBus: 0)
         guard source.sampleRate > 0, source.channelCount > 0,
               let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false),
-              let converter = AVAudioConverter(from: source, to: target) else { throw CoreError.message("The microphone format is unavailable.") }
+              let converter = AVAudioConverter(from: source, to: target) else { throw DictationError(.noMicrophone, "The microphone format is unavailable.") }
         // AirPods connecting mid-recording stop the engine; remember it so stop() can say why the audio ended.
         observer = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { [weak self] _ in
             guard let self, !self.engine.isRunning else { return }
-            self.lock.lock(); if self.failure == nil { self.failure = CoreError.message("The microphone changed during recording.") }; self.lock.unlock()
+            self.lock.lock(); if self.failure == nil { self.failure = DictationError(.microphoneChanged, "The microphone changed during recording.") }; self.lock.unlock()
         }
         input.installTap(onBus: 0, bufferSize: 4096, format: source) { [weak self] buffer, _ in
             guard let self else { return }
@@ -84,7 +84,7 @@ private final class Capture: @unchecked Sendable {
                 if supplied { inputStatus.pointee = .noDataNow; return nil }
                 supplied = true; inputStatus.pointee = .haveData; return buffer
             }
-            if status == .error { self.lock.lock(); self.failure = error ?? CoreError.message("Audio conversion failed."); self.lock.unlock(); return }
+            if status == .error { self.lock.lock(); self.failure = DictationError(.other, error?.localizedDescription ?? "Audio conversion failed."); self.lock.unlock(); return }
             guard let channel = converted.floatChannelData?[0] else { return }
             let data = Array(UnsafeBufferPointer(start: channel, count: Int(converted.frameLength)))
             let rms = data.isEmpty ? 0 : sqrt(data.reduce(Float(0)) { $0 + $1 * $1 } / Float(data.count))
@@ -97,7 +97,7 @@ private final class Capture: @unchecked Sendable {
             if reachedLimit { self.onLimit() }
             self.levels.send(min(1, rms * 5))
         }
-        do { engine.prepare(); try engine.start() } catch { input.removeTap(onBus: 0); removeObserver(); throw error }
+        do { engine.prepare(); try engine.start() } catch { input.removeTap(onBus: 0); removeObserver(); throw DictationError(.other, error.localizedDescription) }
     }
     func stop() throws -> [Float] {
         lock.lock(); let alreadyStopped = stopped; stopped = true; lock.unlock()
@@ -160,8 +160,13 @@ public actor DictationPipeline {
     /// Recording events the app has to act on, such as the recording hitting its maximum length.
     public var events: AsyncStream<PipelineEvent> { pipelineEvents.stream() }
     private func setState(_ value: DictationState) { currentState = value; stateEvents.send(value) }
+    /// A failure the app can switch on: our own errors keep their kind, anything from another layer becomes `.other`.
+    private static func published(_ error: Error) -> DictationError {
+        if let error = error as? DictationError { return error }
+        return DictationError(.other, error.localizedDescription)
+    }
     public func prepare() async throws {
-        guard currentState == .idle || isError else { throw CoreError.message("Dictation is busy.") }
+        guard currentState == .idle || isError else { throw DictationError(.busy, "Dictation is busy.") }
         let generation = modelGeneration
         setState(.preparing)
         do {
@@ -178,18 +183,21 @@ public actor DictationPipeline {
             try ensureCurrent(generation)
             self.manager = manager
             progressEvents.send(.init(phase: "Ready", fractionCompleted: 1)); setState(.idle)
+        } catch let error as CancellationError {
+            // A cancelled prepare is not a failure to show; the caller asked for it.
+            setState(.idle); throw error
         } catch {
             // A model swapped out from under us is not a failure the user should see as an error.
-            guard generation == modelGeneration else { setState(.idle); throw CoreError.message("The model changed while it was loading.") }
-            setState(.error(error.localizedDescription)); throw error
+            guard generation == modelGeneration else { setState(.idle); throw DictationError(.modelChanged, "The model changed while it was loading.") }
+            setState(.error(Self.published(error))); throw error
         }
     }
     private func ensureCurrent(_ generation: Int) throws {
-        guard generation == modelGeneration else { throw CoreError.message("The model changed while it was loading.") }
+        guard generation == modelGeneration else { throw DictationError(.modelChanged, "The model changed while it was loading.") }
     }
     private var isError: Bool { if case .error = currentState { return true }; return false }
     public func start() async throws {
-        guard (currentState == .idle || isError), manager != nil else { throw CoreError.message("Prepare models before recording, and wait for any current dictation to finish.") }
+        guard (currentState == .idle || isError), manager != nil else { throw DictationError(.modelsNotReady, "Prepare models before recording, and wait for any current dictation to finish.") }
         startToken &+= 1
         let token = startToken
         setState(.listening)
@@ -199,11 +207,13 @@ public actor DictationPipeline {
             else { granted = await AVCaptureDevice.requestAccess(for: .audio) }
             // stop() or cancel() may have run while the permission prompt was up; then this recording is already over.
             guard PipelineRules.isCurrent(start: token, current: startToken) else { return }
-            guard granted else { throw CoreError.message("Microphone access was denied.") }
+            guard granted else { throw DictationError(.microphoneDenied, "Microphone access was denied.") }
             let events = pipelineEvents
             let capture = Capture(levels: levelEvents, onLimit: { events.send(.maxDurationReached) })
             try capture.start(); self.capture = capture
-        } catch { setState(.error(error.localizedDescription)); throw error }
+        } catch let error as CancellationError {
+            setState(.idle); throw error
+        } catch { setState(.error(Self.published(error))); throw error }
     }
     public func stop() async throws -> DictationResult {
         // A stop with nothing recording at all is a no-op, not an error.
@@ -215,7 +225,7 @@ public actor DictationPipeline {
             let samples = try capture.stop()
             // An accidental tap of the hotkey is not an error, it is just nothing to transcribe.
             guard PipelineRules.isTranscribable(samples.count) else { setState(.idle); return Self.emptyResult }
-            guard let manager else { throw CoreError.message("The speech model was unloaded during recording.") }
+            guard let manager else { throw DictationError(.modelsNotReady, "The speech model was unloaded during recording.") }
             var decoderState = try TdtDecoderState(decoderLayers: await manager.decoderLayerCount)
             let raw = try await manager.transcribe(samples, decoderState: &decoderState).text
             let selectedStore = dictionary
@@ -229,7 +239,9 @@ public actor DictationPipeline {
                 final = tidied.text; failure = tidied.failure; duration = tidied.duration
             }
             setState(.idle); return DictationResult(raw: raw, final: final, cleanupFailure: failure, cleanupDuration: duration)
-        } catch { setState(.error(error.localizedDescription)); throw error }
+        } catch let error as CancellationError {
+            setState(.idle); throw error
+        } catch { setState(.error(Self.published(error))); throw error }
     }
     /// Abandons the current recording without transcribing it.
     public func cancel() async {

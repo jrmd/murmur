@@ -74,10 +74,13 @@ final class PipelineTests: XCTestCase {
         let result = try await pipeline.stop()
         XCTAssertEqual(result.final, "")
     }
-    func testStartWithoutModelsThrows() async {
+    func testStartWithoutModelsThrowsModelsNotReady() async {
         let pipeline = DictationPipeline(tidier: StubTidier())
         do { try await pipeline.start(); XCTFail("start() must need a prepared model") }
-        catch { XCTAssertTrue(error.localizedDescription.contains("Prepare models")) }
+        catch let error as DictationError {
+            XCTAssertEqual(error.kind, .modelsNotReady)
+            XCTAssertTrue(error.message.contains("Prepare models"))
+        } catch { XCTFail("start() must throw a DictationError, got \(error)") }
         let state = await latestState(of: pipeline)
         XCTAssertEqual(state, .idle)
     }
