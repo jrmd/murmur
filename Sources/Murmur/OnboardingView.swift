@@ -382,7 +382,7 @@ struct OnboardingView: View {
             .background(KeyRecorder(capturing: $capturing, keyCode: $controller.hotkeyCode, modifiers: $controller.hotkeyModifiers))
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "sparkles").font(.system(size: 11)).foregroundStyle(OB.tertiary).padding(.top, 2).accessibilityHidden(true)
-                Text("fn (\(Text(Image(systemName: "globe"))) is the default because it rarely clashes with other apps. If it opens the emoji picker or starts system dictation, set System Settings › Keyboard › “Press \(Text(Image(systemName: "globe"))) to” to “Do Nothing”.")
+                Text("fn (\(Text(Image(systemName: "globe")))) is the default because it rarely clashes with other apps. If it opens the emoji picker or starts system dictation, set System Settings › Keyboard › “Press \(Text(Image(systemName: "globe"))) to” to “Do Nothing”.")
                     .font(.system(size: 12.5)).foregroundStyle(OB.tertiary).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
             }
         }

@@ -1235,7 +1235,7 @@
       "comment": "Setup step title for the practice step."
     },
     {
-      "key": "fn (%@ is the default because it rarely clashes with other apps. If it opens the emoji picker or starts system dictation, set System Settings › Keyboard › “Press %@ to” to “Do Nothing”.",
+      "key": "fn (%@) is the default because it rarely clashes with other apps. If it opens the emoji picker or starts system dictation, set System Settings › Keyboard › “Press %@ to” to “Do Nothing”.",
       "comment": "Setup note about the fn key. Both placeholders are the Globe key symbol."
     },
     {
