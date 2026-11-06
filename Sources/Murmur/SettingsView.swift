@@ -540,6 +540,11 @@ private struct AboutSettings: View {
                 LabeledContent("Last checked", value: updates.lastChecked.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "Never")
                 Button("Check for Updates…") { updates.check() }.disabled(!updates.canCheck)
             }
+            Section("Open source") {
+                LabeledContent { LinkButton(title: "GitHub", url: "https://github.com/jrmd/murmur") } label: {
+                    SettingLabel(title: "Source code", subtitle: "Murmur is free and open source under the MIT License.")
+                }
+            }
             Section("Built with") {
                 LabeledContent { LinkButton(title: "Licence", url: "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3") } label: {
                     SettingLabel(title: "Parakeet TDT 0.6B v3", subtitle: "Speech recognition by NVIDIA · CC BY 4.0")
@@ -582,6 +587,7 @@ private struct AcknowledgementsView: View {
         ("FluidAudio", "Core ML speech recognition runtime for Apple silicon · Apache 2.0", "https://github.com/FluidInference/FluidAudio"),
         ("Parakeet TDT 0.6B", "NVIDIA speech recognition models · CC BY 4.0", "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3"),
         ("llama.cpp", "On-device inference for the clean-up model · MIT", "https://github.com/ggml-org/llama.cpp"),
+        ("Sparkle", "Software updates · MIT", "https://github.com/sparkle-project/Sparkle"),
         ("Murmur Clean 350M", "Bonus Objective clean-up model, fine-tuned from Liquid AI LFM2.5-350M · LFM Open License v1.0", "https://huggingface.co/bonusobjective/murmur-clean-350m"),
         ("LFM3", "Liquid AI clean-up model · LFM Open License v1.0", "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF"),
     ]
