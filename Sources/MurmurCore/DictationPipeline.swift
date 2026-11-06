@@ -172,8 +172,9 @@ public actor DictationPipeline {
             try ensureCurrent(generation)
             let manager = AsrManager(config: .default); try await manager.loadModels(models)
             try ensureCurrent(generation)
-            progressEvents.send(.init(phase: "Downloading and loading \(cleanupModel.shortName)"))
-            try await tidier.prepare()
+            let cleanupName = cleanupModel.shortName
+            progressEvents.send(.init(phase: "Loading \(cleanupName)"))
+            try await tidier.prepare(progress: { events.send(.init(phase: "Downloading \(cleanupName)", fractionCompleted: $0)) })
             try ensureCurrent(generation)
             self.manager = manager
             progressEvents.send(.init(phase: "Ready", fractionCompleted: 1)); setState(.idle)
@@ -232,6 +233,8 @@ public actor DictationPipeline {
     }
     /// Abandons the current recording without transcribing it.
     public func cancel() async {
+        // Past this point the audio is already being transcribed; only a recording can be abandoned.
+        guard currentState == .listening else { return }
         startToken &+= 1
         if let capture { self.capture = nil; _ = try? capture.stop() }
         setState(.idle)

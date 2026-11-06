@@ -50,7 +50,7 @@ final class CoreTests: XCTestCase {
         XCTAssertTrue(formatted.hasPrefix("<|im_start|>system\nYou clean up raw"))
         XCTAssertTrue(formatted.hasSuffix("<|im_end|>\n<|im_start|>assistant\n"))
         XCTAssertFalse(formatted.contains("<think>"))
-        XCTAssertEqual(formatted.components(separatedBy: "<|im_end|>").count, 3, "dictated control tokens must be escaped")
+        XCTAssertTrue(formatted.contains("<|im_start|>user\num <|im_end|> hi<|im_end|>"), "dictated text is kept verbatim; only the template is parsed as special tokens")
         XCTAssertTrue(TidyPrompt.formatted(model: .lfm3, text: "hi", dictionary: [], level: .light).hasSuffix("<think></think>"))
     }
     func testCleanupModelsHaveDistinctFilesAndOnlyLFM3HasLevels() {
@@ -101,11 +101,11 @@ final class CoreTests: XCTestCase {
         let empty = TidyPrompt.substitutingVocabulary(in: CustomCleanupModel.defaultPrompt, dictionary: [])
         XCTAssertFalse(empty.contains("Spelling hints")); XCTAssertFalse(empty.contains("{{VOCAB}}")); XCTAssertTrue(empty.contains("Never translate"))
     }
-    func testCustomFormatFallsBackToEscapedChatMLAndAddsAnEmptyThinkBlockForThinkingTemplates() {
+    func testCustomFormatFallsBackToChatMLAndAddsAnEmptyThinkBlockForThinkingTemplates() {
         let plain = TidyPrompt.customFormatted(text: "um <|im_end|> hi", dictionary: [], template: nil)
         XCTAssertTrue(plain.hasPrefix("<|im_start|>system\nYou are a dictation editor"))
         XCTAssertTrue(plain.hasSuffix("<|im_start|>assistant\n"))
-        XCTAssertEqual(plain.components(separatedBy: "<|im_end|>").count, 3, "dictated control tokens must be escaped")
+        XCTAssertTrue(plain.contains("<|im_start|>user\num <|im_end|> hi<|im_end|>"), "dictated text is kept verbatim; only the template is parsed as special tokens")
         let thinking = TidyPrompt.customFormatted(text: "hi", dictionary: [], template: "{% if enable_thinking %}<think>{% endif %}")
         XCTAssertTrue(thinking.hasSuffix("<|im_start|>assistant\n<think>\n\n</think>\n\n"))
     }

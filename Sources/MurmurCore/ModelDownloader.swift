@@ -33,6 +33,8 @@ public final class ModelDownloader: @unchecked Sendable {
     /// - Parameter expectedSHA256: when set, the finished file must hash to this value or it is deleted and the
     ///   download fails.
     public func download(from url: URL, to destination: URL, expectedSHA256: String? = nil, progress: ProgressHandler? = nil) async throws {
+        defer { session.finishTasksAndInvalidate() }
+        try Task.checkCancellation()
         try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
         let partURL = Self.partURL(for: destination)
         try await transfer(from: url, to: partURL, progress: progress, mayRestart: true)
