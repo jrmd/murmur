@@ -13,6 +13,8 @@ struct CustomCleanupSheet: View {
     @State private var repo = ""
     @State private var files: [HuggingFace.File] = []
     @State private var file = ""
+    /// The commit the file list came from, so the download is pinned to the bytes the user picked.
+    @State private var revision: String?
     @State private var prompt = CustomCleanupModel.defaultPrompt
     @State private var lookup = Lookup.idle
 
@@ -67,7 +69,7 @@ struct CustomCleanupSheet: View {
         .tint(.murmurCoral)
         .onAppear {
             guard let existing else { return }
-            link = existing.repoURL.absoluteString; repo = existing.repo; prompt = existing.systemPrompt
+            link = existing.repoURL.absoluteString; repo = existing.repo; prompt = existing.systemPrompt; revision = existing.revision
             files = [HuggingFace.File(name: existing.fileName, size: existing.sizeBytes)]; file = existing.fileName
         }
     }
@@ -83,10 +85,10 @@ struct CustomCleanupSheet: View {
         }
         lookup = .loading
         do {
-            let found = try await HuggingFace.listGGUFFiles(repo: reference.repo)
-            guard !found.isEmpty else { lookup = .failed("\(reference.repo) has no GGUF files Murmur can run. Look for a repo with “GGUF” in its name."); return }
-            repo = reference.repo; files = found
-            file = found.first { $0.name == reference.fileName }?.name ?? HuggingFace.preferred(found)?.name ?? found[0].name
+            let found = try await HuggingFace.listGGUFRepository(repo: reference.repo)
+            guard !found.files.isEmpty else { lookup = .failed("\(reference.repo) has no GGUF files Murmur can run. Look for a repo with “GGUF” in its name."); return }
+            repo = reference.repo; files = found.files; revision = found.revision
+            file = found.files.first { $0.name == reference.fileName }?.name ?? HuggingFace.preferred(found.files)?.name ?? found.files[0].name
             lookup = .idle
         } catch {
             lookup = .failed(error.localizedDescription)
@@ -95,7 +97,10 @@ struct CustomCleanupSheet: View {
 
     private func save() {
         guard let selectedFile else { return }
-        let model = CustomCleanupModel(repo: repo, fileName: selectedFile.name, systemPrompt: prompt.trimmingCharacters(in: .whitespacesAndNewlines), sizeBytes: selectedFile.size)
+        // Editing the prompt of the model you already have keeps the commit it was downloaded from.
+        let unchanged = existing?.repo == repo && existing?.fileName == selectedFile.name
+        let model = CustomCleanupModel(repo: repo, fileName: selectedFile.name, systemPrompt: prompt.trimmingCharacters(in: .whitespacesAndNewlines),
+                                       sizeBytes: selectedFile.size, revision: unchanged ? existing?.revision : revision)
         dismiss()
         Task { await controller.saveCustomCleanup(model) }
     }
