@@ -78,7 +78,7 @@ struct PrimaryButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                if let symbol { Image(systemName: symbol).font(.system(size: 13, weight: .semibold)) }
+                if let symbol { Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).accessibilityHidden(true) }
                 Text(title)
             }
         }
@@ -140,10 +140,10 @@ struct StatusPill: View {
     var body: some View {
         HStack(spacing: 6) {
             switch kind {
-            case .granted, .ready: Image(systemName: "checkmark.circle.fill").font(.system(size: 12))
-            case .waiting, .downloading: Spinner(color: textColor)
-            case .denied: Image(systemName: "xmark.circle.fill").font(.system(size: 12))
-            case .needed, .notDownloaded: Circle().strokeBorder(textColor, style: StrokeStyle(lineWidth: 1.2, dash: [2, 2])).frame(width: 11, height: 11)
+            case .granted, .ready: Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).accessibilityHidden(true)
+            case .waiting, .downloading: Spinner(color: textColor).accessibilityHidden(true)
+            case .denied: Image(systemName: "xmark.circle.fill").font(.system(size: 12)).accessibilityHidden(true)
+            case .needed, .notDownloaded: Circle().strokeBorder(textColor, style: StrokeStyle(lineWidth: 1.2, dash: [2, 2])).frame(width: 11, height: 11).accessibilityHidden(true)
             }
             Text(kind.label).font(.system(size: 12, weight: .semibold))
         }
@@ -153,6 +153,8 @@ struct StatusPill: View {
         .background(tint.opacity(tint == OB.text ? 0.06 : 0.14), in: .capsule)
         .overlay(Capsule().strokeBorder(tint.opacity(tint == OB.text ? 0.12 : 0.28), lineWidth: 1))
         .animation(.easeOut(duration: 0.2), value: kind.label)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Status: \(kind.label)")
     }
 }
 
@@ -176,6 +178,7 @@ struct StepHeader: View {
                 }
             }
             .frame(width: 56, height: 56)
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(eyebrow.uppercased()).font(.system(size: 11.5, weight: .semibold)).tracking(0.6).foregroundStyle(OB.tertiary)
                 Text(title).font(.system(size: 28, weight: .bold)).tracking(-0.6).foregroundStyle(OB.text)
@@ -214,6 +217,7 @@ struct IconChip: View {
             .foregroundStyle(Color.murmurCoral)
             .frame(width: size, height: size)
             .background(Color.murmurCoral.opacity(0.16), in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .accessibilityHidden(true)
     }
 }
 
@@ -239,6 +243,7 @@ struct NumberedStep: View {
                 }
             }
             .frame(width: 22, height: 22)
+            .accessibilityHidden(true)
             text.font(.system(size: 14.5)).foregroundStyle(mark == .future ? OB.secondary : OB.text)
                 .lineSpacing(2).fixedSize(horizontal: false, vertical: true).padding(.top, 1.5)
         }
@@ -257,6 +262,8 @@ struct Stepper: View {
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: current)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Step \(current + 1) of \(count)")
     }
 }
 
@@ -266,7 +273,7 @@ struct Keycap: View {
     var active = false
     var body: some View {
         HStack(spacing: 6) {
-            if let symbol { Image(systemName: symbol).font(.system(size: 14, weight: .regular)).foregroundStyle(OB.secondary) }
+            if let symbol { Image(systemName: symbol).font(.system(size: 14, weight: .regular)).foregroundStyle(OB.secondary).accessibilityHidden(true) }
             Text(label).font(.system(size: 20, weight: .semibold)).foregroundStyle(OB.text)
         }
         .padding(.horizontal, 16)
@@ -309,6 +316,7 @@ struct SettingsIllustration: View {
         }
         .frame(width: 296)
         .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        .accessibilityHidden(true)
     }
 
     private func row(name: String, on: Bool, bold: Bool = false, tag: Bool = false, focused: Bool = false, icon: AnyView) -> some View {
@@ -349,7 +357,7 @@ struct ListeningHUD: View {
     let label: String
     var body: some View {
         HStack(spacing: 10) {
-            Circle().fill(Color.murmurCoral).frame(width: 9, height: 9).shadow(color: .murmurCoral.opacity(0.8), radius: 4)
+            Circle().fill(Color.murmurCoral).frame(width: 9, height: 9).shadow(color: .murmurCoral.opacity(0.8), radius: 4).accessibilityHidden(true)
             LevelBars(level: level)
             Text(label).font(.system(size: 12.5, weight: .medium)).foregroundStyle(.white.opacity(0.92))
         }
@@ -374,6 +382,7 @@ struct LevelBars: View {
         }
         .frame(height: 20)
         .animation(.easeOut(duration: 0.08), value: level)
+        .accessibilityHidden(true)
     }
 }
 
@@ -399,6 +408,7 @@ struct ChoiceControl<Option: Hashable & Identifiable>: View {
                         .contentShape(.capsule)
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
             }
         }
         .padding(3).frame(width: width)

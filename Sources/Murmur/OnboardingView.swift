@@ -257,7 +257,7 @@ struct OnboardingView: View {
                     }
                     .padding(14).obCard()
                     HStack(spacing: 12) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 16)).foregroundStyle(Color.murmurGreen).frame(width: 34)
+                        Image(systemName: "checkmark.circle.fill").font(.system(size: 16)).foregroundStyle(Color.murmurGreen).frame(width: 34).accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Microphone access granted").font(.system(size: 14, weight: .semibold)).foregroundStyle(OB.text)
                             Text("You can change this any time in System Settings › Privacy & Security › Microphone.").font(.system(size: 12.5)).foregroundStyle(OB.secondary)
@@ -337,7 +337,7 @@ struct OnboardingView: View {
             }
             if inputMonitoring == .granted && needsRelaunch {
                 HStack(spacing: 12) {
-                    Image(systemName: "arrow.clockwise").font(.system(size: 15, weight: .semibold)).foregroundStyle(OB.amberText).frame(width: 24)
+                    Image(systemName: "arrow.clockwise").font(.system(size: 15, weight: .semibold)).foregroundStyle(OB.amberText).frame(width: 24).accessibilityHidden(true)
                     (Text("One quick relaunch. ").bold() + Text("macOS often needs Murmur to restart before the shortcut works. You’ll come straight back to this step."))
                         .font(.system(size: 12.5)).foregroundStyle(OB.secondary).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
@@ -361,28 +361,28 @@ struct OnboardingView: View {
                        eyebrow: "Step 5 of 7 · Shortcut", title: "Choose your shortcut")
             Lead("Pick how you start dictating. You can change this later in Settings.")
             HStack(spacing: 12) {
-                modeCard("Hold to talk", "Hold the shortcut while you speak. Let go to paste. Best for quick notes.", "hand.tap", "Hold")
-                modeCard("Press to toggle", "Press once to start, again to stop. Best for longer dictation.", "switch.2", "Toggle")
+                modeCard("Hold to talk", "Hold the shortcut while you speak. Let go to paste. Best for quick notes.", "hand.tap", .hold)
+                modeCard("Press to toggle", "Press once to start, again to stop. Best for longer dictation.", "switch.2", .toggle)
             }
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Dictation shortcut").font(.system(size: 14, weight: .semibold)).foregroundStyle(OB.text)
-                    Text(capturing ? "Press the key or combination you want…" : "Click Record, then press the key or combination you want.")
+                    Text(capturing ? "Press the key or combination you want… Esc cancels." : "Click Record, then press the key or combination you want.")
                         .font(.system(size: 12.5)).foregroundStyle(OB.secondary)
                 }
                 Spacer()
                 shortcutKeycaps
                 VStack(spacing: 6) {
                     Button(capturing ? "Press a key…" : "Record…") { capturing.toggle() }.buttonStyle(GlassCapsuleStyle(small: true))
-                    Button("Reset") { capturing = false; controller.hotkeyCode = 63; controller.hotkeyModifiers = Int(NSEvent.ModifierFlags.function.rawValue) }
+                    Button("Reset") { capturing = false; controller.hotkeyCode = AppController.defaultHotkeyCode; controller.hotkeyModifiers = AppController.defaultHotkeyModifiers }
                         .buttonStyle(GlassCapsuleStyle(small: true))
                 }
             }
             .padding(.horizontal, 18).padding(.vertical, 14).obCard()
             .background(KeyRecorder(capturing: $capturing, keyCode: $controller.hotkeyCode, modifiers: $controller.hotkeyModifiers))
             HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 11)).foregroundStyle(OB.tertiary).padding(.top, 2)
-                (Text("fn (") + Text(Image(systemName: "globe")) + Text(") is the default because it rarely clashes with other apps. If it opens the emoji picker, set “Press ") + Text(Image(systemName: "globe")) + Text(" key to” to “Do Nothing” in System Settings › Keyboard."))
+                Image(systemName: "sparkles").font(.system(size: 11)).foregroundStyle(OB.tertiary).padding(.top, 2).accessibilityHidden(true)
+                (Text("fn (") + Text(Image(systemName: "globe")) + Text(") is the default because it rarely clashes with other apps. If it opens the emoji picker or starts system dictation, set System Settings › Keyboard › “Press ") + Text(Image(systemName: "globe")) + Text(" to” to “Do Nothing”."))
                     .font(.system(size: 12.5)).foregroundStyle(OB.tertiary).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -395,18 +395,18 @@ struct OnboardingView: View {
         }
     }
 
-    private func modeCard(_ title: String, _ detail: String, _ symbol: String, _ mode: String) -> some View {
+    private func modeCard(_ title: String, _ detail: String, _ symbol: String, _ mode: DictationMode) -> some View {
         let selected = controller.mode == mode
         return Button { controller.mode = mode } label: {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 10) {
-                    Image(systemName: symbol).font(.system(size: 14)).foregroundStyle(Color.murmurCoral)
+                    Image(systemName: symbol).font(.system(size: 14)).foregroundStyle(Color.murmurCoral).accessibilityHidden(true)
                     Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(OB.text)
                     Spacer()
                     ZStack {
                         Circle().strokeBorder(selected ? .clear : OB.tertiary, lineWidth: 1.5)
                         if selected { Circle().fill(Color.murmurCoral); Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.white) }
-                    }.frame(width: 20, height: 20)
+                    }.frame(width: 20, height: 20).accessibilityHidden(true)
                 }
                 Text(detail).font(.system(size: 12.5)).foregroundStyle(OB.secondary).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
             }
@@ -416,6 +416,7 @@ struct OnboardingView: View {
             .shadow(color: selected ? Color.murmurCoral.opacity(0.22) : .clear, radius: 8)
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
         .animation(.easeOut(duration: 0.18), value: selected)
     }
 
@@ -450,7 +451,7 @@ struct OnboardingView: View {
             }
             if modelsPhase == .failed, let message = controller.errorMessage {
                 HStack(spacing: 10) {
-                    Image(systemName: isOffline(message) ? "wifi.slash" : "exclamationmark.triangle").foregroundStyle(OB.amberText)
+                    Image(systemName: isOffline(message) ? "wifi.slash" : "exclamationmark.triangle").foregroundStyle(OB.amberText).accessibilityHidden(true)
                     Text(isOffline(message) ? "You appear to be offline. Connect to the internet and retry." : message)
                         .font(.system(size: 12.5)).foregroundStyle(OB.secondary).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
@@ -460,7 +461,7 @@ struct OnboardingView: View {
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.murmurAmber.opacity(0.25), lineWidth: 1))
             } else {
                 HStack(spacing: 10) {
-                    Image(systemName: "lock.shield").font(.system(size: 14)).foregroundStyle(Color.murmurCoral)
+                    Image(systemName: "lock.shield").font(.system(size: 14)).foregroundStyle(Color.murmurCoral).accessibilityHidden(true)
                     (Text("On-device and private. ").bold().foregroundStyle(OB.text) + Text("Your voice and text never leave this Mac.").foregroundStyle(OB.secondary))
                         .font(.system(size: 14))
                     Spacer(minLength: 0)
@@ -511,7 +512,7 @@ struct OnboardingView: View {
             return DictationResultView(final: r.final, raw: r.raw, seconds: controller.cleanupDuration)
         }()
         let shortcut = ShortcutLabel.parts(code: controller.hotkeyCode, modifiers: controller.hotkeyModifiers).map(\.label).joined(separator: " ")
-        let instruction = controller.mode == "Toggle"
+        let instruction = controller.mode == .toggle
             ? Text("Give it a go. Press ") + Text(shortcut).bold() + Text(" to start, say something, then press it again.")
             : Text("Give it a go. Hold ") + Text(shortcut).bold() + Text(", say something, then let go.")
         return content {
@@ -539,7 +540,7 @@ struct OnboardingView: View {
             .padding(18).frame(maxWidth: .infinity, minHeight: 134, maxHeight: 134, alignment: .topLeading)
             .overlay(alignment: .bottom) {
                 if listening {
-                    ListeningHUD(level: DebugPreview.practice == "listening" ? 0.6 : controller.audioLevel, label: controller.mode == "Toggle" ? "Listening · press again to paste" : "Listening · release to paste")
+                    ListeningHUD(level: DebugPreview.practice == "listening" ? 0.6 : controller.audioLevel, label: controller.mode == .toggle ? "Listening · press again to paste" : "Listening · release to paste")
                         .padding(.bottom, 14).transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
             }
@@ -557,7 +558,7 @@ struct OnboardingView: View {
 
     private func tip(_ icon: AnyView, _ title: String, _ detail: String) -> some View {
         HStack(spacing: 12) {
-            icon.frame(width: 30, height: 30).background(Color.murmurCoral.opacity(0.16), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            icon.frame(width: 30, height: 30).background(Color.murmurCoral.opacity(0.16), in: RoundedRectangle(cornerRadius: 9, style: .continuous)).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(OB.text)
                 Text(detail).font(.system(size: 12.5)).foregroundStyle(OB.secondary)
@@ -646,6 +647,8 @@ private struct ModelRow: View {
         .padding(.horizontal, 16).padding(.vertical, 14)
         .obCard()
         .animation(.easeOut(duration: 0.25), value: String(describing: state))
+        // The model picker inside stays reachable, so the row is a group rather than one merged element.
+        .accessibilityElement(children: .contain)
     }
 
     private func bar(value: Double, tint: Color, gradient: Bool = false) -> some View {
@@ -681,6 +684,7 @@ private struct IndeterminateBar: View {
         }
         .frame(height: 6).clipShape(Capsule())
         .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { phase = true } }
+        .accessibilityHidden(true)
     }
 }
 
@@ -715,8 +719,22 @@ private struct DictationResultView {
 enum ShortcutLabel {
     struct Part { let label: String; let symbol: String? }
 
+    /// Modifier keys that can be a shortcut on their own, left and right. Caps lock is deliberately absent.
+    private static let modifierKeys: [Int: String] = [55: "⌘", 54: "⌘", 58: "⌥", 61: "⌥", 59: "⌃", 62: "⌃", 56: "⇧", 60: "⇧"]
+
+    /// True for fn and for the modifier keys, which are recorded on their own rather than as a combination.
+    static func isModifierKey(_ code: Int) -> Bool { code == 63 || modifierKeys[code] != nil }
+
+    /// The paste shortcut needs a real key plus ⌘, ⌥ or ⌃, so a stray keypress can never paste over your work.
+    static func isValidPasteShortcut(code: Int, modifiers: Int) -> Bool {
+        if code == 63 { return true }
+        guard !isModifierKey(code) else { return false }
+        return !NSEvent.ModifierFlags(rawValue: UInt(modifiers)).intersection([.command, .option, .control]).isEmpty
+    }
+
     static func parts(code: Int, modifiers: Int) -> [Part] {
         if code == 63 { return [Part(label: "fn", symbol: "globe")] }
+        if let symbol = modifierKeys[code] { return [Part(label: symbol, symbol: nil)] }
         let flags = NSEvent.ModifierFlags(rawValue: UInt(modifiers))
         var parts: [Part] = []
         if flags.contains(.control) { parts.append(Part(label: "⌃", symbol: nil)) }
@@ -744,30 +762,77 @@ struct KeyRecorder: NSViewRepresentable {
     @Binding var capturing: Bool
     @Binding var keyCode: Int
     @Binding var modifiers: Int
+    /// Rejects a capture without changing the shortcut, so the user can try again.
+    var validate: ((Int, Int) -> Bool)?
+    var onRejected: (() -> Void)?
 
     func makeNSView(context: Context) -> RecorderView {
         let view = RecorderView()
-        view.onKey = { code, flags in keyCode = code; modifiers = flags; capturing = false }
-        view.onFn = { keyCode = 63; modifiers = Int(NSEvent.ModifierFlags.function.rawValue); capturing = false }
+        view.onCapture = { code, flags in keyCode = code; modifiers = flags; capturing = false }
+        view.onCancel = { capturing = false }
         return view
     }
     func updateNSView(_ view: RecorderView, context: Context) {
         view.capturing = capturing
+        view.validate = validate
+        view.onRejected = onRejected
         if capturing { DispatchQueue.main.async { view.window?.makeFirstResponder(view) } }
     }
 
     final class RecorderView: NSView {
-        var capturing = false
-        var onKey: ((Int, Int) -> Void)?
-        var onFn: (() -> Void)?
+        var capturing = false { didSet { if capturing != oldValue { pendingModifier = nil } } }
+        var validate: ((Int, Int) -> Bool)?
+        var onRejected: (() -> Void)?
+        var onCapture: ((Int, Int) -> Void)?
+        var onCancel: (() -> Void)?
+        /// A modifier held on its own, kept until the key is released so ⌘V still records as a combination.
+        private var pendingModifier: (keyCode: UInt16, flags: NSEvent.ModifierFlags)?
         override var acceptsFirstResponder: Bool { true }
+
         override func keyDown(with event: NSEvent) {
             guard capturing else { return }
-            onKey?(Int(event.keyCode), Int(event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.function).rawValue))
+            // Esc leaves the shortcut as it was.
+            if event.keyCode == 53 { onCancel?(); return }
+            pendingModifier = nil
+            report(event.keyCode, event.modifierFlags)
         }
+
+        /// Modifier keys arrive here rather than in `keyDown`; the flag for the key tells a press from a release.
         override func flagsChanged(with event: NSEvent) {
-            guard capturing, event.keyCode == 63, event.modifierFlags.contains(.function) else { return }
-            onFn?()
+            guard capturing, let flag = Self.flag(for: event.keyCode) else { return }
+            if event.modifierFlags.contains(flag) {
+                // fn is a shortcut on its own; the other modifiers wait for the release, so a following key wins.
+                if event.keyCode == 63 { report(event.keyCode, event.modifierFlags) }
+                else { pendingModifier = (event.keyCode, event.modifierFlags) }
+            } else if let pending = pendingModifier, pending.keyCode == event.keyCode {
+                pendingModifier = nil
+                report(pending.keyCode, pending.flags)
+            }
+        }
+
+        private func report(_ code: UInt16, _ flags: NSEvent.ModifierFlags) {
+            let keyCode = Int(code), modifiers = Self.modifiers(flags, keyCode: keyCode)
+            guard validate?(keyCode, modifiers) ?? true else { onRejected?(); return }
+            onCapture?(keyCode, modifiers)
+        }
+
+        /// The modifier flag a key code stands for; caps lock is absent so it can never become a shortcut.
+        private static func flag(for keyCode: UInt16) -> NSEvent.ModifierFlags? {
+            switch keyCode {
+            case 55, 54: .command
+            case 58, 61: .option
+            case 59, 62: .control
+            case 56, 60: .shift
+            case 63: .function
+            default: nil
+            }
+        }
+
+        /// A modifier key is its own shortcut, stored as the flag it stands for; anything else keeps the held
+        /// modifiers without fn, which only counts as a shortcut key.
+        private static func modifiers(_ flags: NSEvent.ModifierFlags, keyCode: Int) -> Int {
+            if let flag = flag(for: UInt16(keyCode)) { return Int(flag.rawValue) }
+            return Int(flags.intersection(.deviceIndependentFlagsMask).subtracting(.function).rawValue)
         }
     }
 }
