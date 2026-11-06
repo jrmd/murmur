@@ -2,7 +2,7 @@ import XCTest
 @testable import MurmurCore
 
 /// Serves canned replies so the Hugging Face listing can be tested without the network.
-final class StubURLProtocol: URLProtocol {
+final class HuggingFaceStubProtocol: URLProtocol {
     static var handler: ((URLRequest) throws -> (Int, Data))?
     static var requests: [URLRequest] = []
 
@@ -29,22 +29,22 @@ final class HuggingFaceTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        StubURLProtocol.handler = nil
-        StubURLProtocol.requests = []
+        HuggingFaceStubProtocol.handler = nil
+        HuggingFaceStubProtocol.requests = []
     }
     override func tearDown() {
-        StubURLProtocol.handler = nil
-        StubURLProtocol.requests = []
+        HuggingFaceStubProtocol.handler = nil
+        HuggingFaceStubProtocol.requests = []
         super.tearDown()
     }
 
     private func session() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [StubURLProtocol.self]
+        configuration.protocolClasses = [HuggingFaceStubProtocol.self]
         return URLSession(configuration: configuration)
     }
     private func reply(_ status: Int, _ body: String) {
-        StubURLProtocol.handler = { _ in (status, Data(body.utf8)) }
+        HuggingFaceStubProtocol.handler = { _ in (status, Data(body.utf8)) }
     }
     /// The message a caller would show, or nil when the call succeeded.
     private func message(_ body: () async throws -> Void) async -> String? {
@@ -61,7 +61,7 @@ final class HuggingFaceTests: XCTestCase {
         let found = try await HuggingFace.listGGUFRepository(repo: "owner/name-GGUF", session: session())
         XCTAssertEqual(found.files.map(\.name), ["m-Q4_K_M.gguf", "m-Q8_0.gguf"])
         XCTAssertEqual(found.revision, sha)
-        XCTAssertEqual(StubURLProtocol.requests.first?.url?.absoluteString, "https://huggingface.co/api/models/owner/name-GGUF?blobs=true")
+        XCTAssertEqual(HuggingFaceStubProtocol.requests.first?.url?.absoluteString, "https://huggingface.co/api/models/owner/name-GGUF?blobs=true")
         let wrapper = try await HuggingFace.listGGUFFiles(repo: "owner/name-GGUF", session: session())
         XCTAssertEqual(wrapper.map(\.name), ["m-Q4_K_M.gguf", "m-Q8_0.gguf"])
     }
@@ -107,7 +107,7 @@ final class HuggingFaceTests: XCTestCase {
     }
     func testOfflineAndTimeoutsAreFriendly() async {
         for code in [URLError.notConnectedToInternet, .timedOut, .cannotFindHost] {
-            StubURLProtocol.handler = { _ in throw URLError(code) }
+            HuggingFaceStubProtocol.handler = { _ in throw URLError(code) }
             let text = await message { _ = try await HuggingFace.listGGUFFiles(repo: "owner/name-GGUF", session: session()) }
             XCTAssertNotNil(text, "\(code)")
             XCTAssertFalse(text?.contains("NSURLError") == true, "\(code): \(text ?? "nil")")
@@ -118,7 +118,7 @@ final class HuggingFaceTests: XCTestCase {
     func testInvalidRepoNeverReachesTheNetwork() async {
         let text = await message { _ = try await HuggingFace.listGGUFFiles(repo: "not a repo", session: session()) }
         XCTAssertEqual(text, "That is not a valid Hugging Face model name.")
-        XCTAssertTrue(StubURLProtocol.requests.isEmpty)
+        XCTAssertTrue(HuggingFaceStubProtocol.requests.isEmpty)
     }
 
     // MARK: Sizes
