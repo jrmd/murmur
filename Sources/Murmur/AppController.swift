@@ -390,8 +390,9 @@ final class AppController: ObservableObject {
         guard TextInserter.insert(text) else {
             // Nothing could be posted: leave the text on the clipboard so the user can paste it themselves.
             TextInserter.copyOnly(text)
-            errorMessage = "Couldn't paste — text copied to clipboard"
-            lastError = nil
+            let failure = DictationError(.other, "Couldn't paste — text copied to clipboard")
+            errorMessage = failure.message
+            lastError = failure
             status = .error
             return
         }
