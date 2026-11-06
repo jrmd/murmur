@@ -14,6 +14,42 @@ public extension TextTidying {
 }
 
 public enum TidyPrompt {
+    /// A slice of the prompt and whether llama.cpp may read control tokens inside it. Only the template scaffolding is
+    /// parsed as special tokens, so a dictated `<|im_end|>` stays text instead of ending the turn.
+    struct Segment: Equatable {
+        let text: String
+        let parseSpecial: Bool
+    }
+
+    /// One piece of a long dictation, split so it fits the model's context on its own.
+    struct Chunk: Equatable {
+        let text: String
+        /// The split fell on a paragraph break, so the cleaned pieces should be joined with one.
+        var endsParagraph: Bool
+    }
+
+    /// The context a clean-up runs in and the budgets derived from it, kept in one place so the prompt limit, the chunk
+    /// size and the generation budget can never disagree.
+    enum Limits {
+        /// Context window for every clean-up run.
+        static let nContext: Int32 = 4096
+        /// Prompt tokens one chunk may use, including the system prompt and chat scaffolding.
+        static let maxPromptTokens = 1200
+        /// Most tokens one clean-up may generate; a rewrite is never much longer than its input.
+        static let outputReserve = 1536
+        /// Prompt decoding is chunked to respect n_batch.
+        static let batchSize = 512
+        /// Conservative characters per token, so a chunk sized in characters stays inside its token budget.
+        static let charactersPerToken = 3
+        /// Smallest prompt budget worth running; below this the model has no room to work.
+        static let minPromptTokens = 256
+
+        /// Tokens one clean-up may generate: enough to rewrite its chunk, never more than the context allows.
+        static func outputBudget(promptTokens: Int) -> Int {
+            max(1, min(outputReserve, promptTokens + 256, Int(nContext) - promptTokens - 8))
+        }
+    }
+
     /// Instructions live in the system turn so the dictation itself is just the user turn;
     /// putting both in one message made LFM3 start reasoning about the "request" instead of cleaning the text.
     public static func system(dictionary: [DictionaryEntry], level: CleanupLevel = .balanced) -> String {
@@ -68,27 +104,45 @@ public enum TidyPrompt {
     }
 
     /// Plain ChatML with no thinking block and no worked example, matching how Murmur Clean was trained.
-    /// `<` is escaped in user text so dictated special-token spellings can never become control tokens.
-    static func murmurCleanFormatted(text: String, dictionary: [DictionaryEntry]) -> String {
-        let safeText = text.replacingOccurrences(of: "<", with: "\\u003c")
-        let safeSystem = murmurCleanSystem(dictionary: dictionary).replacingOccurrences(of: "<", with: "\\u003c")
-        return "<|im_start|>system\n\(safeSystem)<|im_end|>\n<|im_start|>user\n\(safeText)<|im_end|>\n<|im_start|>assistant\n"
+    static func murmurCleanSegments(text: String, dictionary: [DictionaryEntry]) -> [Segment] {
+        [
+            Segment(text: "<|im_start|>system\n", parseSpecial: true),
+            Segment(text: murmurCleanSystem(dictionary: dictionary), parseSpecial: false),
+            Segment(text: "<|im_end|>\n<|im_start|>user\n", parseSpecial: true),
+            Segment(text: text, parseSpecial: false),
+            Segment(text: "<|im_end|>\n<|im_start|>assistant\n", parseSpecial: true),
+        ]
     }
 
-    static func formatted(model: CleanupModel, text: String, dictionary: [DictionaryEntry], level: CleanupLevel) -> String {
+    static func murmurCleanFormatted(text: String, dictionary: [DictionaryEntry]) -> String {
+        joined(murmurCleanSegments(text: text, dictionary: dictionary))
+    }
+
+    static func segments(model: CleanupModel, text: String, dictionary: [DictionaryEntry], level: CleanupLevel) -> [Segment] {
         switch model {
-        case .murmurClean: murmurCleanFormatted(text: text, dictionary: dictionary)
-        case .lfm3: formatted(text: text, dictionary: dictionary, level: level)
-        case .custom: customFormatted(text: text, dictionary: dictionary, template: nil)
+        case .murmurClean: murmurCleanSegments(text: text, dictionary: dictionary)
+        case .lfm3: segments(text: text, dictionary: dictionary, level: level)
+        case .custom: customSegments(text: text, dictionary: dictionary, template: nil)
         }
     }
 
-    /// `<` is escaped so dictated special-token spellings can never become control tokens.
-    static func escapingControlTokens(_ text: String) -> String { text.replacingOccurrences(of: "<", with: "\\u003c") }
-
-    static func chatML(system: String, user: String) -> String {
-        "<|im_start|>system\n\(system)<|im_end|>\n<|im_start|>user\n\(user)<|im_end|>\n<|im_start|>assistant\n"
+    static func formatted(model: CleanupModel, text: String, dictionary: [DictionaryEntry], level: CleanupLevel) -> String {
+        joined(segments(model: model, text: text, dictionary: dictionary, level: level))
     }
+
+    static func joined(_ segments: [Segment]) -> String { segments.map(\.text).joined() }
+
+    static func chatMLSegments(system: String, user: String, suffix: String = "") -> [Segment] {
+        [
+            Segment(text: "<|im_start|>system\n", parseSpecial: true),
+            Segment(text: system, parseSpecial: false),
+            Segment(text: "<|im_end|>\n<|im_start|>user\n", parseSpecial: true),
+            Segment(text: user, parseSpecial: false),
+            Segment(text: "<|im_end|>\n<|im_start|>assistant\n" + suffix, parseSpecial: true),
+        ]
+    }
+
+    static func chatML(system: String, user: String) -> String { joined(chatMLSegments(system: system, user: user)) }
 
     /// Renders system + user through a model's own chat template. nil when llama.cpp does not recognise the template
     /// (it supports a fixed list of formats, not arbitrary Jinja), so callers can fall back to ChatML.
@@ -115,14 +169,24 @@ public enum TidyPrompt {
 
     /// The user's prompt in the model's own chat format. Thinking-capable templates get an empty think block, as with
     /// Qwen3's non-thinking mode, so the model answers straight away.
-    static func customFormatted(text: String, dictionary: [DictionaryEntry], template: String?) -> String {
+    static func customSegments(text: String, dictionary: [DictionaryEntry], template: String?) -> [Segment] {
         let configured = CustomCleanupModel.stored?.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let prompt = configured.isEmpty ? CustomCleanupModel.defaultPrompt : configured
-        let system = escapingControlTokens(substitutingVocabulary(in: prompt, dictionary: dictionary))
-        let user = escapingControlTokens(text)
-        var formatted = template.flatMap { applyChatTemplate($0, system: system, user: user) } ?? chatML(system: system, user: user)
-        if template?.contains("<think>") == true { formatted += "<think>\n\n</think>\n\n" }
-        return formatted
+        let system = substitutingVocabulary(in: prompt, dictionary: dictionary)
+        let suffix = template?.contains("<think>") == true ? "<think>\n\n</think>\n\n" : ""
+        // Render the template around a marker so the dictated text can be cut back out as its own segment.
+        let marker = "\u{E000}user\u{E000}"
+        let rendered = template.flatMap { applyChatTemplate($0, system: system, user: marker) } ?? chatML(system: system, user: marker)
+        guard let range = rendered.range(of: marker) else { return chatMLSegments(system: system, user: text, suffix: suffix) }
+        return [
+            Segment(text: String(rendered[..<range.lowerBound]), parseSpecial: true),
+            Segment(text: text, parseSpecial: false),
+            Segment(text: String(rendered[range.upperBound...]) + suffix, parseSpecial: true),
+        ]
+    }
+
+    static func customFormatted(text: String, dictionary: [DictionaryEntry], template: String?) -> String {
+        joined(customSegments(text: text, dictionary: dictionary, template: template))
     }
 
     /// Drops a leading `<think>…</think>` block that a reasoning model emitted before its answer.
@@ -132,14 +196,71 @@ public enum TidyPrompt {
         return String(trimmed[end.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// LFM3 chat template with thinking disabled. `<` is escaped in user text so dictated
-    /// special-token spellings can never become control tokens.
-    static func formatted(text: String, dictionary: [DictionaryEntry], level: CleanupLevel = .balanced) -> String {
-        let safeText = text.replacingOccurrences(of: "<", with: "\\u003c")
-        let safeSystem = system(dictionary: dictionary, level: level).replacingOccurrences(of: "<", with: "\\u003c")
+    /// LFM3 chat template with thinking disabled.
+    static func segments(text: String, dictionary: [DictionaryEntry], level: CleanupLevel = .balanced) -> [Segment] {
         // One worked example anchors the "edit, don't rewrite" behaviour for a small model.
-        let example = "<|im_start|>user\nuh so we need to send the invoice to acme by friday actually no make that thursday and could you copy finance<|im_end|>\n<|im_start|>assistant\n<think></think>So we need to send the invoice to Acme by Thursday, and could you copy Finance?<|im_end|>\n"
-        return "<|im_start|>system\n\(safeSystem)<|im_end|>\n\(example)<|im_start|>user\n\(safeText)<|im_end|>\n<|im_start|>assistant\n<think></think>"
+        let example = "<|im_start|>user\nuh so we need to send the invoice to acme by friday actually no make that thursday and could you copy finance<|im_end|>\n<|im_start|>assistant\n <think></think>So we need to send the invoice to Acme by Thursday, and could you copy Finance?<|im_end|>\n"
+        return [
+            Segment(text: "<|im_start|>system\n", parseSpecial: true),
+            Segment(text: system(dictionary: dictionary, level: level), parseSpecial: false),
+            Segment(text: "<|im_end|>\n" + example + "<|im_start|>user\n", parseSpecial: true),
+            Segment(text: text, parseSpecial: false),
+            Segment(text: "<|im_end|>\n<|im_start|>assistant\n <think>", parseSpecial: true),
+        ]
+    }
+
+    static func formatted(text: String, dictionary: [DictionaryEntry], level: CleanupLevel = .balanced) -> String {
+        joined(segments(text: text, dictionary: dictionary, level: level))
+    }
+
+    /// Splits a dictation into pieces that each fit the model's context, preferring paragraph breaks, then sentence
+    /// ends, then clause marks, then word breaks, and only cutting mid-word when a single word is longer than the limit.
+    static func chunks(of text: String, maxCharacters: Int) -> [Chunk] {
+        let limit = max(maxCharacters, 1)
+        let characters = Array(text)
+        guard characters.count > limit else { return text.isEmpty ? [] : [Chunk(text: text, endsParagraph: false)] }
+        var chunks: [Chunk] = []
+        var start = 0
+        while start < characters.count {
+            var end = min(start + limit, characters.count)
+            if end < characters.count { end = splitPoint(in: characters, from: start, to: end) }
+            let piece = String(characters[start..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
+            var scan = end, paragraph = false
+            while scan < characters.count, characters[scan].isWhitespace {
+                if characters[scan] == "\n" { paragraph = true }
+                scan += 1
+            }
+            if !piece.isEmpty { chunks.append(Chunk(text: piece, endsParagraph: paragraph)) }
+            start = scan
+        }
+        return chunks
+    }
+
+    /// The best place to cut at or before `end`: a paragraph break, else a sentence end, else a clause mark, else a space.
+    /// Nothing before the halfway point counts, so a stray early break cannot leave a chunk almost empty.
+    private static func splitPoint(in characters: [Character], from start: Int, to end: Int) -> Int {
+        let floor = max(start + 1, start + (end - start) / 2)
+        for index in stride(from: end, through: floor, by: -1) where characters[index] == "\n" { return index }
+        for marks in [".!?…", ",;:—–"] {
+            for index in stride(from: end, through: floor, by: -1) where marks.contains(characters[index - 1]) && characters[index].isWhitespace { return index }
+        }
+        for index in stride(from: end, through: floor, by: -1) where characters[index].isWhitespace { return index }
+        return end
+    }
+
+    /// Joins cleaned chunks with a single space, or a paragraph break where the split fell on one.
+    static func joining(_ cleaned: [String], chunks: [Chunk]) -> String {
+        var output = ""
+        for (index, part) in cleaned.enumerated() {
+            let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            if !output.isEmpty {
+                let paragraph = index > 0 && chunks.indices.contains(index - 1) && chunks[index - 1].endsParagraph
+                output += paragraph ? "\n\n" : " "
+            }
+            output += trimmed
+        }
+        return output
     }
 }
 
@@ -153,11 +274,18 @@ public actor LlamaTidier: TextTidying {
     private let cleanupModel: CleanupModel
     private let modelURL: URL
     private var model: OpaquePointer?
+    /// One context per loaded model, reused across dictations; its memory is cleared before every run.
+    private var context: OpaquePointer?
     public init(model: CleanupModel = .murmurClean, modelURL: URL? = nil) {
         self.cleanupModel = model
         self.modelURL = modelURL ?? model.url
     }
-    deinit { if let model { llama_model_free(model) } }
+    /// `llama_backend_init()` is idempotent and runs in `prepare()`; `llama_backend_free()` is process-wide (MPI only),
+    /// so it is deliberately not called here.
+    deinit {
+        if let context { llama_free(context) }
+        if let model { llama_model_free(model) }
+    }
     public func prepare() async throws {
         if model != nil { return }
         if cleanupModel == .custom, CustomCleanupModel.stored == nil { throw CoreError.message("Choose a custom clean-up model in Settings first.") }
@@ -179,36 +307,99 @@ public actor LlamaTidier: TextTidying {
         defer { try? handle.close() }
         return (try? handle.read(upToCount: 4)) == Data("GGUF".utf8)
     }
-    public func unload() async { if let model { llama_model_free(model); self.model = nil } }
+    public func unload() async {
+        if let context { llama_free(context); self.context = nil }
+        if let model { llama_model_free(model); self.model = nil }
+    }
     public func tidy(_ text: String, dictionary: [DictionaryEntry], level: CleanupLevel) async throws -> String {
         guard let model else { throw CoreError.message("Tidy model is not prepared.") }
-        var params = llama_context_default_params(); params.n_ctx = 4096; params.n_batch = 512
-        guard let context = llama_init_from_model(model, params) else { throw CoreError.message("Could not initialize the \(cleanupModel.shortName) context.") }
-        defer { llama_free(context) }
-        let formatted: String
-        if cleanupModel == .custom {
-            formatted = TidyPrompt.customFormatted(text: text, dictionary: dictionary, template: llama_model_chat_template(model, nil).map { String(cString: $0) })
-        } else {
-            formatted = TidyPrompt.formatted(model: cleanupModel, text: text, dictionary: dictionary, level: level)
-        }
         let vocab = llama_model_get_vocab(model)!
-        var tokens = [llama_token](repeating: 0, count: formatted.utf8.count + 16)
-        let count = llama_tokenize(vocab, formatted, Int32(formatted.utf8.count), &tokens, Int32(tokens.count), true, true)
-        guard count > 0, count < 3500 else { throw CoreError.message("Dictation is too long for the tidy model context.") }
-        tokens = Array(tokens.prefix(Int(count)))
-        // Chunk prompt decoding to respect n_batch.
-        for offset in stride(from: 0, to: tokens.count, by: 512) {
-            var chunk = Array(tokens[offset..<min(offset + 512, tokens.count)])
-            let status = chunk.withUnsafeMutableBufferPointer { llama_decode(context, llama_batch_get_one($0.baseAddress, Int32($0.count))) }
-            guard status == 0 else { throw CoreError.message("\(cleanupModel.shortName) prompt decoding failed (\(status)).") }
+        let template = cleanupModel == .custom ? llama_model_chat_template(model, nil).map { String(cString: $0) } : nil
+        func prompt(for text: String) -> [TidyPrompt.Segment] {
+            cleanupModel == .custom
+                ? TidyPrompt.customSegments(text: text, dictionary: dictionary, template: template)
+                : TidyPrompt.segments(model: cleanupModel, text: text, dictionary: dictionary, level: level)
+        }
+        // The scaffolding is the same for every chunk, so measure it once and size the chunks from what is left.
+        let overhead = tokenize(prompt(for: ""), vocab: vocab).count
+        let room = max(TidyPrompt.Limits.minPromptTokens, TidyPrompt.Limits.maxPromptTokens - overhead)
+        var pending = TidyPrompt.chunks(of: text, maxCharacters: room * TidyPrompt.Limits.charactersPerToken)
+        var cleaned: [String] = [], chunks: [TidyPrompt.Chunk] = []
+        while !pending.isEmpty {
+            try Task.checkCancellation()
+            let chunk = pending.removeFirst()
+            let tokens = tokenize(prompt(for: chunk.text), vocab: vocab)
+            guard tokens.count <= TidyPrompt.Limits.maxPromptTokens else {
+                // The character estimate was optimistic for this text, so split it again, smaller.
+                let scaled = max(1, chunk.text.count * TidyPrompt.Limits.maxPromptTokens / tokens.count)
+                var smaller = TidyPrompt.chunks(of: chunk.text, maxCharacters: scaled)
+                guard smaller.count > 1 else { throw CoreError.message("Dictation is too long for the tidy model context.") }
+                smaller[smaller.count - 1].endsParagraph = chunk.endsParagraph
+                pending.insert(contentsOf: smaller, at: 0)
+                continue
+            }
+            cleaned.append(try generate(tokens, model: model, vocab: vocab))
+            chunks.append(chunk)
+        }
+        let output = TidyPrompt.joining(cleaned, chunks: chunks)
+        guard !output.isEmpty else { throw CoreError.message("\(cleanupModel.shortName) returned empty output.") }
+        return output
+    }
+
+    /// Tokenizes each segment with its own special-token setting, so dictated text can never become a control token.
+    private func tokenize(_ segments: [TidyPrompt.Segment], vocab: OpaquePointer) -> [llama_token] {
+        var tokens: [llama_token] = []
+        for segment in segments where !segment.text.isEmpty {
+            // BOS/EOS belong at the very start of the prompt only, as when the whole prompt was one string.
+            let addSpecial = tokens.isEmpty
+            var capacity = segment.text.utf8.count + 16
+            var buffer = [llama_token](repeating: 0, count: capacity)
+            var count = llama_tokenize(vocab, segment.text, Int32(segment.text.utf8.count), &buffer, Int32(capacity), addSpecial, segment.parseSpecial)
+            if count < 0 {
+                capacity = Int(-count) + 8
+                buffer = [llama_token](repeating: 0, count: capacity)
+                count = llama_tokenize(vocab, segment.text, Int32(segment.text.utf8.count), &buffer, Int32(capacity), addSpecial, segment.parseSpecial)
+            }
+            guard count > 0 else { continue }
+            tokens.append(contentsOf: buffer.prefix(Int(count)))
+        }
+        return tokens
+    }
+
+    /// The context for this model, created on first use and reused by every later dictation.
+    private func ensureContext(_ model: OpaquePointer) throws -> OpaquePointer {
+        if let context { return context }
+        var params = llama_context_default_params()
+        params.n_ctx = UInt32(TidyPrompt.Limits.nContext)
+        params.n_batch = UInt32(TidyPrompt.Limits.batchSize)
+        guard let created = llama_init_from_model(model, params) else { throw CoreError.message("Could not initialize the \(cleanupModel.shortName) context.") }
+        context = created
+        return created
+    }
+
+    /// Drops a context a failed decode may have left unusable; the next run builds a fresh one.
+    private func discardContext() {
+        if let context { llama_free(context); self.context = nil }
+    }
+
+    /// Runs one clean-up over a tokenized prompt, reusing the actor's context.
+    private func generate(_ prompt: [llama_token], model: OpaquePointer, vocab: OpaquePointer) throws -> String {
+        let context = try ensureContext(model)
+        // A previous run may have thrown or been cancelled mid-generation, so every run starts from clean memory.
+        llama_memory_clear(llama_get_memory(context), true)
+        for offset in stride(from: 0, to: prompt.count, by: TidyPrompt.Limits.batchSize) {
+            var batch = Array(prompt[offset..<min(offset + TidyPrompt.Limits.batchSize, prompt.count)])
+            let status = batch.withUnsafeMutableBufferPointer { llama_decode(context, llama_batch_get_one($0.baseAddress, Int32($0.count))) }
+            guard status == 0 else {
+                discardContext()
+                throw CoreError.message("\(cleanupModel.shortName) prompt decoding failed (\(status)).")
+            }
         }
         let sampler = llama_sampler_chain_init(llama_sampler_chain_default_params())!
         defer { llama_sampler_free(sampler) }
         llama_sampler_chain_add(sampler, llama_sampler_init_greedy())
         var bytes = [UInt8](), ended = false
-        // A clean-up is never much longer than its input; this bounds a runaway generation.
-        let budget = min(4096 - Int(count) - 8, Int(count) + 128)
-        for _ in 0..<max(budget, 1) {
+        for _ in 0..<TidyPrompt.Limits.outputBudget(promptTokens: prompt.count) {
             try Task.checkCancellation()
             var token = llama_sampler_sample(sampler, context, -1)
             if llama_vocab_is_eog(vocab, token) { ended = true; break }
@@ -219,7 +410,10 @@ public actor LlamaTidier: TextTidying {
             bytes.append(contentsOf: piece.prefix(Int(n)).map { UInt8(bitPattern: $0) })
             // LFM3 sometimes closes a (disabled) think block and repeats its answer; the text before the tag is the answer.
             if cleanupModel != .custom, bytes.suffix(8).elementsEqual("</think>".utf8) { bytes.removeLast(8); ended = true; break }
-            guard llama_decode(context, llama_batch_get_one(&token, 1)) == 0 else { throw CoreError.message("\(cleanupModel.shortName) generation failed.") }
+            guard llama_decode(context, llama_batch_get_one(&token, 1)) == 0 else {
+                discardContext()
+                throw CoreError.message("\(cleanupModel.shortName) generation failed.")
+            }
         }
         guard ended else { throw CoreError.message("\(cleanupModel.shortName) output exceeded its token limit.") }
         var output = String(decoding: bytes, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
