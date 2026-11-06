@@ -59,6 +59,8 @@ final class OverlayPresenter {
     private weak var controller: AppController?
     private var dismissTask: Task<Void, Never>?
     private var collapseTask: Task<Void, Never>?
+    /// The phase VoiceOver last heard, so a repeated update does not repeat the announcement.
+    private var announcedKey: String?
 
     func update(controller: AppController) {
         self.controller = controller
@@ -67,23 +69,26 @@ final class OverlayPresenter {
         if debugHold { return }
         #endif
         if controller.isPracticing { hide(); return }
-        switch controller.statusText {
-        case "Listening": show(.listening)
-        case "Transcribing": show(.working("Transcribing…"))
-        case "Tidying": show(.working("Tidying…"))
-        case "Error":
+        switch controller.status {
+        case .listening: show(.listening)
+        case .transcribing: show(.working("Transcribing…"))
+        case .tidying: show(.working("Tidying…"))
+        case .error:
             show(errorPhase(controller))
             scheduleDismiss(after: 6)
-        case "Idle":
+        case .idle:
             // Pasted and error states keep their own timers; a bare Idle only ends listening/working.
             switch model.phase {
             case .listening, .working: scheduleDismiss(after: 0.45)
             default: break
             }
-        default:
-            break // Preparing etc. must not end an active island
+        case .preparing:
+            break // Preparing must not end an active island
         }
     }
+
+    /// Hides the island at once, for a dictation the user abandoned.
+    func dismiss() { hide() }
 
     func showPasted(text: String, appName: String?, seconds: Double?, verb: String = "Pasted") {
         let flat = text.replacingOccurrences(of: "\n", with: " ")
@@ -120,17 +125,19 @@ final class OverlayPresenter {
 
     private func errorPhase(_ controller: AppController) -> IslandPhase {
         let message = controller.errorMessage ?? "Something went wrong."
-        let lower = message.lowercased()
-        if lower.contains("no microphone") || lower.contains("no input") {
-            return .error(title: "No mic", message: "No microphone found. Pick an input.", action: .openMicrophoneSettings)
-        }
-        if lower.contains("microphone access") || lower.contains("denied") {
+        guard let kind = controller.lastError?.kind else { return .error(title: "Couldn’t dictate", message: message, action: nil) }
+        switch kind {
+        case .microphoneDenied:
             return .error(title: "No mic access", message: "Murmur can’t use the microphone.", action: .openMicrophoneSettings)
-        }
-        if lower.contains("prepare") || lower.contains("not prepared") {
+        case .noMicrophone:
+            return .error(title: "No mic", message: "No microphone found. Pick an input.", action: .openMicrophoneSettings)
+        case .modelsNotReady:
             return .error(title: "Models not ready", message: "Murmur is still setting up its local models.", action: .openSetup)
+        case .microphoneChanged:
+            return .error(title: "Microphone changed", message: message, action: nil)
+        case .busy, .modelChanged, .other:
+            return .error(title: "Couldn’t dictate", message: message, action: nil)
         }
-        return .error(title: "Couldn’t dictate", message: message, action: nil)
     }
 
     private func ensurePanel(_ controller: AppController) {
@@ -162,6 +169,27 @@ final class OverlayPresenter {
         } else {
             model.phase = phase
         }
+        announce(phase)
+    }
+
+    /// VoiceOver hears the state changes the island shows visually.
+    private func announce(_ phase: IslandPhase) {
+        let key = phase.contentKey
+        guard key != announcedKey else { return }
+        announcedKey = key
+        switch phase {
+        case .hidden: return
+        case .listening: announce("Listening")
+        case .working(let label): announce(label.replacingOccurrences(of: "…", with: ""))
+        case .pasted(_, _, _, let verb): announce(verb)
+        case .error(let title, _, _): announce(title)
+        }
+    }
+
+    /// Posts an announcement for something the island does not show, such as the recording hitting its limit.
+    func announce(_ text: String) {
+        NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
+                             userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
     }
 
     private func scheduleDismiss(after seconds: Double) {
@@ -175,6 +203,7 @@ final class OverlayPresenter {
 
     private func hide() {
         dismissTask?.cancel()
+        announcedKey = nil
         guard panel?.isVisible == true else { return }
         model.phase = .hidden
         collapseTask?.cancel()
@@ -199,6 +228,9 @@ struct DictationIsland: View {
     @ObservedObject var model: IslandModel
     @ObservedObject var controller: AppController
 
+    /// Read on each layout pass: the island is small enough that asking the system is cheap.
+    private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+
     var body: some View {
         let size = model.size
         ZStack(alignment: .top) {
@@ -211,7 +243,7 @@ struct DictationIsland: View {
                 .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 16, bottomTrailingRadius: 16, style: .continuous))
         }
         .frame(width: IslandModel.panelWidth, height: model.metrics.height + 56, alignment: .top)
-        .animation(.spring(response: 0.35, dampingFraction: 0.78), value: model.phase)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.35, dampingFraction: 0.78), value: model.phase)
         .environment(\.colorScheme, .dark)
     }
 
@@ -278,7 +310,9 @@ struct DictationIsland: View {
         }
         // Content arrives at ~60% of the shape's expansion; it leaves immediately.
         .id(model.phase.contentKey)
-        .transition(.asymmetric(insertion: .opacity.animation(.easeIn(duration: 0.15).delay(0.21)), removal: .opacity.animation(.easeOut(duration: 0.08))))
+        .transition(reduceMotion
+            ? .asymmetric(insertion: .opacity.animation(.easeIn(duration: 0.1)), removal: .opacity.animation(.easeOut(duration: 0.08)))
+            : .asymmetric(insertion: .opacity.animation(.easeIn(duration: 0.15).delay(0.21)), removal: .opacity.animation(.easeOut(duration: 0.08))))
     }
 
     private func row<L: View, R: View>(height: CGFloat, notch: CGFloat, @ViewBuilder left: () -> L, @ViewBuilder right: () -> R) -> some View {
@@ -364,26 +398,39 @@ private struct ListeningTimer: View {
 
 private struct IslandSpinner: View {
     var body: some View {
-        TimelineView(.animation) { context in
-            let angle = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 0.9) / 0.9 * 360
-            Circle().trim(from: 0, to: 0.75)
-                .stroke(Color.murmurCoral, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
-                .frame(width: 15, height: 15)
-                .rotationEffect(.degrees(angle))
+        Group {
+            if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                ring(angle: 0)
+            } else {
+                TimelineView(.animation) { context in
+                    ring(angle: context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 0.9) / 0.9 * 360)
+                }
+            }
         }
         .padding(.leading, 6)
+    }
+
+    private func ring(angle: Double) -> some View {
+        Circle().trim(from: 0, to: 0.75)
+            .stroke(Color.murmurCoral, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+            .frame(width: 15, height: 15)
+            .rotationEffect(.degrees(angle))
     }
 }
 
 private struct ShimmerText: View {
     let text: String
     var body: some View {
-        TimelineView(.animation) { context in
-            let phase = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.4) / 1.4
-            Text(text).font(.system(size: 13, weight: .medium))
-                .foregroundStyle(LinearGradient(
-                    colors: [.white.opacity(0.45), .white, .white.opacity(0.45)],
-                    startPoint: UnitPoint(x: phase * 2 - 1, y: 0.5), endPoint: UnitPoint(x: phase * 2, y: 0.5)))
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            Text(text).font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
+        } else {
+            TimelineView(.animation) { context in
+                let phase = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.4) / 1.4
+                Text(text).font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(LinearGradient(
+                        colors: [.white.opacity(0.45), .white, .white.opacity(0.45)],
+                        startPoint: UnitPoint(x: phase * 2 - 1, y: 0.5), endPoint: UnitPoint(x: phase * 2, y: 0.5)))
+            }
         }
     }
 }

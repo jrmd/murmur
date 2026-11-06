@@ -12,7 +12,7 @@ struct MurmurApp: App {
             MenuContent(controller: controller, updates: updates)
         } label: {
             HStack(spacing: 3) {
-                Image(nsImage: BrandAssets.menuBarImage(recording: controller.statusText == "Listening"))
+                Image(nsImage: BrandAssets.menuBarImage(recording: controller.status == .listening))
                 #if DEBUG
                 Text("dev")
                 #endif

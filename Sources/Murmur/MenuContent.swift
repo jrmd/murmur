@@ -11,9 +11,9 @@ struct MenuContent: View {
 
     private enum Status { case ready, setup, listening, working }
     private var status: Status {
-        switch controller.statusText {
-        case "Listening": return .listening
-        case "Transcribing", "Tidying": return .working
+        switch controller.status {
+        case .listening: return .listening
+        case .transcribing, .tidying: return .working
         default: return controller.permissionsReady && controller.modelsReady ? .ready : .setup
         }
     }
@@ -27,9 +27,9 @@ struct MenuContent: View {
             MenuToggleRow(symbol: "sparkles", title: "Clean-up", isOn: $controller.cleanupEnabled)
                 .disabled(!controller.modelsReady).opacity(controller.modelsReady ? 1 : 0.45)
             MenuRow(symbol: "doc.on.clipboard", title: "Paste Last Dictation", subtitle: controller.lastInserted.map { "“\($0.replacingOccurrences(of: "\n", with: " "))”" },
-                    shortcut: "⌥⇧V", enabled: controller.lastInserted != nil) { controller.pasteLastDictation() }
+                    shortcut: pasteLastShortcut, enabled: controller.lastInserted != nil) { controller.pasteLastDictation() }
             Rule()
-            MenuRow(symbol: "gearshape", title: "Settings…", shortcut: "⌘,") { NSApp.activate(ignoringOtherApps: true); openSettings() }
+            MenuRow(symbol: "gearshape", title: "Settings…", shortcut: "⌘,") { NSApp.activate(); openSettings() }
                 .keyboardShortcut(",")
             MenuRow(symbol: "checkmark.shield", title: "Setup & Permissions…") { controller.showOnboarding = true }
             MenuRow(symbol: "arrow.triangle.2.circlepath", title: "Check for Updates…", enabled: updates.canCheck) { updates.check() }
@@ -53,7 +53,7 @@ struct MenuContent: View {
                     StatusBadge(status: badge)
                 }
                 HStack(spacing: 5) {
-                    Text(controller.mode == "Toggle" ? "Press" : "Hold").foregroundStyle(.secondary)
+                    Text(controller.mode == .toggle ? "Press" : "Hold").foregroundStyle(.secondary)
                     ForEach(Array(ShortcutLabel.parts(code: controller.hotkeyCode, modifiers: controller.hotkeyModifiers).enumerated()), id: \.offset) { _, part in
                         Text(part.label).font(.system(size: 11.5, weight: .semibold)).padding(.horizontal, 5).frame(minWidth: 20, minHeight: 17)
                             .background(.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
@@ -81,6 +81,11 @@ struct MenuContent: View {
         }
     }
 
+    /// The combo that re-pastes the last dictation, as the user recorded it.
+    private var pasteLastShortcut: String {
+        ShortcutLabel.parts(code: controller.pasteLastKeyCode, modifiers: controller.pasteLastModifiers).map(\.label).joined()
+    }
+
     // MARK: Banners
 
     private struct Banner { let title: String; let message: String; let detail: String?; let severe: Bool }
@@ -88,8 +93,11 @@ struct MenuContent: View {
         if let failure = controller.cleanupNotice {
             return Banner(title: "Clean-up skipped", message: "Clean-up failed, so Murmur pasted the raw transcript.", detail: failure, severe: false)
         }
-        if let message = controller.errorMessage, controller.statusText == "Error" {
+        if controller.status == .error, let message = controller.errorMessage {
             return Banner(title: "Dictation failed", message: message, detail: nil, severe: true)
+        }
+        if let notice = controller.notice {
+            return Banner(title: "Recording stopped", message: notice, detail: nil, severe: false)
         }
         return nil
     }
@@ -127,6 +135,12 @@ struct MenuContent: View {
                 Text("Preparing Local Models").font(.system(size: 13.5, weight: .semibold))
                 Spacer()
                 if let fraction { Text("\(Int(fraction * 100))%").font(.system(size: 13, weight: .semibold).monospacedDigit()).contentTransition(.numericText()) }
+                Button { controller.cancelPreparing() } label: {
+                    Text("Cancel").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                        .padding(.horizontal, 10).frame(height: 22).background(.white.opacity(0.18), in: .capsule)
+                }
+                .buttonStyle(.plain)
+                .help("Stop the download. It resumes from where it stopped next time.")
             }
             ZStack(alignment: .leading) {
                 GeometryReader { proxy in

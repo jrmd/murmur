@@ -6,11 +6,33 @@ import IOKit.hid
 import MurmurCore
 import ServiceManagement
 
+/// How the shortcut starts and stops a dictation.
+enum DictationMode: String, CaseIterable {
+    case hold = "Hold"
+    case toggle = "Toggle"
+}
+
+/// What happens to the text once it has been transcribed.
+enum OutputMode: String {
+    case paste, copy
+}
+
+/// The dictation lifecycle the UI switches on; the pipeline's own state carries the error payload.
+enum DictationStatus: Equatable {
+    case idle, preparing, listening, transcribing, tidying, error
+}
+
 @MainActor
 final class AppController: ObservableObject {
-    @Published private(set) var statusText = "Idle" { didSet { OverlayPresenter.shared.update(controller: self) } }
+    /// Fn / Globe: the default because it rarely clashes with other apps.
+    static let defaultHotkeyCode = 63
+    static let defaultHotkeyModifiers = Int(NSEvent.ModifierFlags.function.rawValue)
+
+    @Published private(set) var status: DictationStatus = .idle { didSet { OverlayPresenter.shared.update(controller: self) } }
     @Published private(set) var menuSymbol = "waveform"
     @Published var errorMessage: String?
+    /// The typed error behind `errorMessage`; the overlay picks its screen from `kind`, never from the text.
+    @Published private(set) var lastError: DictationError?
     @Published private(set) var isPreparing = false
     @Published private(set) var prepareDescription = ""
     @Published private(set) var prepareFraction: Double?
@@ -21,9 +43,12 @@ final class AppController: ObservableObject {
     @Published private(set) var cleanupDuration: TimeInterval?
     @Published private(set) var lastInserted: String?
     @Published private(set) var cleanupNotice: String?
+    /// A short, non-error message for the menu, such as the recording hitting its length limit.
+    @Published private(set) var notice: String?
     @Published private(set) var listeningStartedAt: Date?
-    /// "paste" inserts into the active app; "copy" only puts the text on the clipboard.
-    @Published var outputMode = UserDefaults.standard.string(forKey: "outputMode") ?? "paste" { didSet { UserDefaults.standard.set(outputMode, forKey: "outputMode") } }
+    @Published var outputMode = OutputMode(rawValue: UserDefaults.standard.string(forKey: "outputMode") ?? "") ?? .paste {
+        didSet { UserDefaults.standard.set(outputMode.rawValue, forKey: "outputMode") }
+    }
     @Published var playSounds = UserDefaults.standard.object(forKey: "playSounds") as? Bool ?? true { didSet { UserDefaults.standard.set(playSounds, forKey: "playSounds") } }
     @Published var cleanupLevel = CleanupLevel(rawValue: UserDefaults.standard.string(forKey: "cleanupLevel") ?? "") ?? .balanced {
         didSet {
@@ -57,9 +82,18 @@ final class AppController: ObservableObject {
     @Published private(set) var modelsReady = UserDefaults.standard.bool(forKey: "modelsReady")
     /// True once the pipeline has loaded the models in this process (modelsReady only says they are on disk).
     private var pipelineLoaded = false
-    @Published var hotkeyCode = UserDefaults.standard.object(forKey: "hotkeyCode") as? Int ?? 63 // Fn / Globe
-    @Published var hotkeyModifiers = UserDefaults.standard.object(forKey: "hotkeyModifiers") as? Int ?? Int(NSEvent.ModifierFlags.function.rawValue)
-    @Published var mode = UserDefaults.standard.string(forKey: "dictationMode") ?? "Hold"
+    @Published var hotkeyCode = UserDefaults.standard.object(forKey: "hotkeyCode") as? Int ?? AppController.defaultHotkeyCode
+    @Published var hotkeyModifiers = UserDefaults.standard.object(forKey: "hotkeyModifiers") as? Int ?? AppController.defaultHotkeyModifiers
+    @Published var mode = DictationMode(rawValue: UserDefaults.standard.string(forKey: "dictationMode") ?? "") ?? .hold {
+        didSet { UserDefaults.standard.set(mode.rawValue, forKey: "dictationMode") }
+    }
+    /// The shortcut that re-pastes the last dictation; ⌥⇧V until the user records another.
+    @Published var pasteLastKeyCode = UserDefaults.standard.object(forKey: "pasteLastKeyCode") as? Int ?? 9 {
+        didSet { UserDefaults.standard.set(pasteLastKeyCode, forKey: "pasteLastKeyCode") }
+    }
+    @Published var pasteLastModifiers = UserDefaults.standard.object(forKey: "pasteLastModifiers") as? Int ?? Int(NSEvent.ModifierFlags.option.union(.shift).rawValue) {
+        didSet { UserDefaults.standard.set(pasteLastModifiers, forKey: "pasteLastModifiers") }
+    }
 
     let dictionary: DictionaryStore
     private let pipeline: DictationPipeline
@@ -69,11 +103,21 @@ final class AppController: ObservableObject {
     private var stateTask: Task<Void, Never>?
     private var levelTask: Task<Void, Never>?
     private var progressTask: Task<Void, Never>?
+    private var eventsTask: Task<Void, Never>?
+    /// The one chain every recording step runs on, so a release can never overtake a press.
+    private var flowTask: Task<Void, Never>?
+    private var prepareTask: Task<Void, Error>?
+    /// Bumped by every prepare and by `cancelPreparing()`, so a prepare that finishes late leaves the UI alone.
+    private var prepareGeneration = 0
+    /// Set while a cancelled download's error is still on its way through the pipeline's state stream.
+    private var ignoreNextPipelineError = false
     private var inputGrantedAtLaunch = false
     private var permissionPollTask: Task<Void, Never>?
+    private var permissionPollingActive = false
     private var meterEngine: AVAudioEngine?
-    private var tidyingStartedAt: Date?
     private var resumeSetupAfterInputGrant = false
+    private var activationObserver: NSObjectProtocol?
+    private var terminationObserver: NSObjectProtocol?
 
     /// New installs get Murmur Clean; anyone who already downloaded LFM3 and never chose keeps it.
     private static func storedCleanupModel() -> CleanupModel {
@@ -83,6 +127,18 @@ final class AppController: ObservableObject {
 
     var permissionsReady: Bool { microphoneGranted && inputMonitoringGranted && accessibilityGranted }
     var menuTitle: String { "Murmur · \(statusText)" }
+
+    /// Display string for the readers that still show text (the menu bar title, Settings, onboarding).
+    var statusText: String {
+        switch status {
+        case .idle: "Idle"
+        case .preparing: "Preparing"
+        case .listening: "Listening"
+        case .transcribing: "Transcribing"
+        case .tidying: "Tidying"
+        case .error: "Error"
+        }
+    }
 
     init() {
         let store = DictionaryStore()
@@ -101,42 +157,49 @@ final class AppController: ObservableObject {
             UserDefaults.standard.set(3, forKey: "onboardingStep")
         }
         hotkeyMonitor = HotkeyMonitor { [weak self] isDown, keyCode, modifiers in
-            if isDown, keyCode == 9, modifiers.intersection(.deviceIndependentFlagsMask).isSuperset(of: [.option, .shift]) {
-                Task { @MainActor in self?.pasteLastDictation() }
+            guard let self else { return }
+            let actual = modifiers.intersection(.deviceIndependentFlagsMask)
+            let pasteFlags = NSEvent.ModifierFlags(rawValue: UInt(self.pasteLastModifiers)).intersection(.deviceIndependentFlagsMask)
+            if isDown, keyCode == self.pasteLastKeyCode, actual.isSuperset(of: pasteFlags) {
+                Task { @MainActor in self.pasteLastDictation() }
                 return
             }
-            guard let self, keyCode == self.hotkeyCode else { return }
-            let actual = modifiers.intersection(.deviceIndependentFlagsMask)
+            guard keyCode == self.hotkeyCode else { return }
             let wanted = NSEvent.ModifierFlags(rawValue: UInt(self.hotkeyModifiers))
             let matchesModifiers = keyCode == 63 ? true : actual.intersection([.command, .option, .control, .shift, .function]).rawValue == wanted.rawValue
-            if self.mode == "Toggle" {
-                if isDown && matchesModifiers { Task { await self.toggleRecording() } }
-            } else {
+            switch self.mode {
+            case .toggle:
+                if isDown && matchesModifiers { self.enqueueFlow { await self.toggleRecording() } }
+            case .hold:
                 if isDown && matchesModifiers && !self.heldHotkey {
                     self.heldHotkey = true
                     if UserDefaults.standard.integer(forKey: "onboardingStep") == 6 && self.showOnboarding { self.isPracticing = true; self.lastResult = nil }
-                    Task { await self.beginRecording() }
+                    self.enqueueFlow { await self.beginRecording() }
                 } else if !isDown && self.heldHotkey {
                     self.heldHotkey = false
-                    Task { await self.finishRecording() }
+                    self.enqueueFlow { await self.finishRecording() }
                 }
             }
+        }
+        hotkeyMonitor?.onEscape = { [weak self] in
+            Task { @MainActor in self?.cancelDictation() }
         }
         subscribeToPipeline()
         BrandAssets.applyDockIcon()
         appearanceObservation = NSApp.observe(\.effectiveAppearance) { _, _ in Task { @MainActor in BrandAssets.applyDockIcon() } }
         OverlayPresenter.shared.update(controller: self)
-        permissionPollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                guard let self else { return }
-                self.refreshPermissions()
-            }
+        startPermissionPolling()
+        activationObserver = NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.refreshPermissions() }
+        }
+        terminationObserver = NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            // An edit made in the last debounce window would otherwise be lost on quit.
+            MainActor.assumeIsolated { self?.dictionary.flush() }
         }
         if modelsReady { Task { await prepare() } }
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-obSettings") {
-            Task { try? await Task.sleep(for: .seconds(2)); NSApp.activate(ignoringOtherApps: true); NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) }
+            Task { try? await Task.sleep(for: .seconds(2)); NSApp.activate(); NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) }
         }
         if let i = ProcessInfo.processInfo.arguments.firstIndex(of: "-obIsland"), ProcessInfo.processInfo.arguments.indices.contains(i + 1) {
             let name = ProcessInfo.processInfo.arguments[i + 1]
@@ -160,6 +223,25 @@ final class AppController: ObservableObject {
         let access = IOHIDCheckAccess(kIOHIDRequestTypeListenEvent)
         inputMonitoringGranted = CGPreflightListenEventAccess() || access == kIOHIDAccessTypeGranted
         accessibilityGranted = AXIsProcessTrusted()
+    }
+
+    /// Keeps the fast permission poll running while a window that shows permission state is open.
+    func setPermissionPolling(active: Bool) { permissionPollingActive = active }
+
+    /// A missing permission is worth a one-second poll; once everything is granted, back off to five.
+    private var needsFastPermissionPolling: Bool { !permissionsReady || showOnboarding || showSettings || permissionPollingActive }
+
+    private func startPermissionPolling() {
+        permissionPollTask?.cancel()
+        permissionPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                let interval = self.needsFastPermissionPolling ? 1.0 : 5.0
+                try? await Task.sleep(for: .seconds(interval))
+                guard !Task.isCancelled else { return }
+                self.refreshPermissions()
+            }
+        }
     }
 
     var setupComplete: Bool { permissionsReady && modelsReady }
@@ -195,37 +277,101 @@ final class AppController: ObservableObject {
         guard !isPreparing else { return }
         isPreparing = true
         errorMessage = nil
-        do { try await pipeline.prepare(); pipelineLoaded = true; modelsReady = true; UserDefaults.standard.set(true, forKey: "modelsReady"); UserDefaults.standard.removeObject(forKey: "modelsSkipped") }
-        catch { errorMessage = error.localizedDescription; modelsReady = false; UserDefaults.standard.set(false, forKey: "modelsReady") }
+        lastError = nil
+        prepareGeneration &+= 1
+        let generation = prepareGeneration
+        // Held so `cancelPreparing()` can stop a download that would otherwise run to completion.
+        let task = Task { [pipeline] in try await pipeline.prepare() }
+        prepareTask = task
+        do {
+            try await task.value
+            guard generation == prepareGeneration else { return }
+            pipelineLoaded = true
+            modelsReady = true
+            UserDefaults.standard.set(true, forKey: "modelsReady")
+            UserDefaults.standard.removeObject(forKey: "modelsSkipped")
+        } catch {
+            // The pipeline reports the failure through its state stream; a cancelled download is not a failure.
+            guard generation == prepareGeneration else { return }
+            markModelsNotReady()
+        }
+        guard generation == prepareGeneration else { return }
         isPreparing = false
+        prepareTask = nil
+    }
+
+    /// Abandons an in-flight download or model load. The downloader keeps its `.part` file, so the next attempt resumes.
+    func cancelPreparing() {
+        guard isPreparing else { return }
+        prepareGeneration &+= 1
+        prepareTask?.cancel()
+        prepareTask = nil
+        isPreparing = false
+        prepareDescription = ""
+        prepareFraction = nil
+        errorMessage = nil
+        lastError = nil
+        // The pipeline reports the cancelled download as an error; the user asked for it, so keep it out of the UI.
+        ignoreNextPipelineError = true
+        if status == .preparing { status = .idle }
+    }
+
+    /// Runs one recording step after the previous one, so a key release can never overtake its press.
+    private func enqueueFlow(_ operation: @escaping @MainActor () async -> Void) {
+        let previous = flowTask
+        flowTask = Task { @MainActor in
+            await previous?.value
+            await operation()
+        }
     }
 
     func beginRecording() async {
         guard permissionsReady else { showOnboarding = true; return }
         // After "Skip for now" the shortcut must not start a large download on its own.
-        if !modelsReady && modelsSkipped { errorMessage = "Download the models in Settings › Models to start dictating."; return }
+        if !modelsReady && modelsSkipped { errorMessage = "Download the models in Settings › Models to start dictating."; status = .error; return }
         errorMessage = nil
+        lastError = nil
+        notice = nil
         if !pipelineLoaded {
             await prepare()
             // The shortcut may have been released while the models were loading.
-            guard pipelineLoaded, mode == "Toggle" || heldHotkey else { return }
+            guard pipelineLoaded, mode == .toggle || heldHotkey else { return }
         }
-        do { try await pipeline.start() }
-        catch { errorMessage = error.localizedDescription; statusText = "Error" }
+        do {
+            try await pipeline.start()
+            // The key may have been released while the microphone was opening; never leave it recording.
+            if mode == .hold && !heldHotkey { await finishRecording() }
+        } catch {
+            errorMessage = error.localizedDescription
+            status = .error
+        }
     }
 
     func finishRecording() async {
         do {
             let result = try await pipeline.stop()
-            lastResult = result
-            let final = result.final
             errorMessage = nil
             cleanupNotice = result.cleanupFailure
-            if isPracticing { isPracticing = false }
-            else if !final.isEmpty {
-                deliver(final, seconds: cleanupDuration)
-            }
-        } catch { errorMessage = error.localizedDescription; statusText = "Error" }
+            // A tap or a no-op produces an empty result: nothing to paste, nothing to report, and the practice stays open.
+            guard !result.final.isEmpty else { return }
+            lastResult = result
+            cleanupDuration = result.cleanupDuration
+            if isPracticing { isPracticing = false } else { deliver(result.final, seconds: result.cleanupDuration) }
+        } catch {
+            errorMessage = error.localizedDescription
+            status = .error
+        }
+    }
+
+    /// Esc while listening: throw the recording away instead of transcribing it.
+    func cancelDictation() {
+        guard status == .listening else { return }
+        enqueueFlow { await self.cancelListening() }
+    }
+
+    private func cancelListening() async {
+        await pipeline.cancel()
+        OverlayPresenter.shared.dismiss()
     }
 
     func pasteLastDictation() {
@@ -234,11 +380,22 @@ final class AppController: ObservableObject {
     }
 
     private func deliver(_ text: String, seconds: Double?) {
-        let app = NSWorkspace.shared.frontmostApplication?.localizedName
-        let copyOnly = outputMode == "copy"
-        if copyOnly { TextInserter.copyOnly(text) } else { TextInserter.insert(text) }
         lastInserted = text
-        OverlayPresenter.shared.showPasted(text: text, appName: copyOnly ? nil : app, seconds: seconds, verb: copyOnly ? "Copied to clipboard" : "Pasted")
+        guard outputMode == .paste else {
+            TextInserter.copyOnly(text)
+            OverlayPresenter.shared.showPasted(text: text, appName: nil, seconds: seconds, verb: "Copied to clipboard")
+            return
+        }
+        let app = NSWorkspace.shared.frontmostApplication?.localizedName
+        guard TextInserter.insert(text) else {
+            // Nothing could be posted: leave the text on the clipboard so the user can paste it themselves.
+            TextInserter.copyOnly(text)
+            errorMessage = "Couldn't paste — text copied to clipboard"
+            lastError = nil
+            status = .error
+            return
+        }
+        OverlayPresenter.shared.showPasted(text: text, appName: app, seconds: seconds, verb: "Pasted")
     }
 
     // MARK: Models and storage
@@ -347,13 +504,18 @@ final class AppController: ObservableObject {
     }
 
     func toggleRecording() async {
-        if statusText == "Listening" { await finishRecording() } else { await beginRecording() }
+        switch status {
+        case .listening: await finishRecording()
+        case .idle, .error: await beginRecording()
+        // A press mid-transition must not corrupt the flow; the next press lands once the pipeline is settled.
+        case .preparing, .transcribing, .tidying: break
+        }
     }
 
     func saveHotkey() {
         UserDefaults.standard.set(hotkeyCode, forKey: "hotkeyCode")
         UserDefaults.standard.set(hotkeyModifiers, forKey: "hotkeyModifiers")
-        UserDefaults.standard.set(mode, forKey: "dictationMode")
+        UserDefaults.standard.set(mode.rawValue, forKey: "dictationMode")
     }
 
     func finishOnboarding() { UserDefaults.standard.set(true, forKey: "onboardingFinished") }
@@ -376,7 +538,7 @@ final class AppController: ObservableObject {
         lastResult = nil
         cleanupDuration = nil
         isPracticing = true
-        Task { await beginRecording() }
+        enqueueFlow { await self.beginRecording() }
     }
 
     func openMicrophoneMeter() { if microphoneGranted { startMicrophoneMeter() } }
@@ -413,13 +575,30 @@ final class AppController: ObservableObject {
             for await state in stream {
                 switch state {
                 case .idle:
-                    statusText = "Idle"; menuSymbol = "waveform"
-                    if let start = tidyingStartedAt { cleanupDuration = Date().timeIntervalSince(start); tidyingStartedAt = nil }
-                case .preparing: statusText = "Preparing"; menuSymbol = "arrow.down.circle"
-                case .listening: listeningStartedAt = Date(); statusText = "Listening"; menuSymbol = "waveform.circle.fill"; tick("Tink")
-                case .transcribing: statusText = "Transcribing"; menuSymbol = "ellipsis"; tick("Pop")
-                case .tidying: statusText = "Tidying"; menuSymbol = "sparkles"; tidyingStartedAt = Date()
-                case .error(let message): statusText = "Error"; menuSymbol = "exclamationmark.triangle"; errorMessage = message
+                    ignoreNextPipelineError = false
+                    status = .idle; menuSymbol = "waveform"
+                case .preparing:
+                    ignoreNextPipelineError = false
+                    status = .preparing; menuSymbol = "arrow.down.circle"
+                case .listening:
+                    ignoreNextPipelineError = false
+                    listeningStartedAt = Date(); status = .listening; menuSymbol = "waveform.circle.fill"; tick("Tink")
+                case .transcribing:
+                    ignoreNextPipelineError = false
+                    status = .transcribing; menuSymbol = "ellipsis"; tick("Pop")
+                case .tidying:
+                    ignoreNextPipelineError = false
+                    status = .tidying; menuSymbol = "sparkles"
+                case .error(let error):
+                    if ignoreNextPipelineError {
+                        // The download the user cancelled reports itself as an error; it is not one.
+                        ignoreNextPipelineError = false
+                        status = .idle; menuSymbol = "waveform"
+                    } else {
+                        lastError = error
+                        errorMessage = error.message
+                        status = .error; menuSymbol = "exclamationmark.triangle"
+                    }
                 }
             }
         }
@@ -430,6 +609,19 @@ final class AppController: ObservableObject {
         progressTask = Task {
             let stream = await pipeline.progress
             for await progress in stream { prepareDescription = progress.phase; prepareFraction = progress.fractionCompleted }
+        }
+        eventsTask = Task {
+            let stream = await pipeline.events
+            for await event in stream {
+                switch event {
+                case .maxDurationReached:
+                    // The recording hit its length limit: finish it rather than lose what was said.
+                    let limit = "Reached the 5-minute limit"
+                    notice = limit
+                    OverlayPresenter.shared.announce(limit)
+                    enqueueFlow { await self.finishRecording() }
+                }
+            }
         }
     }
 }
