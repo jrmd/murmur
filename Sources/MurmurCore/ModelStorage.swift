@@ -91,13 +91,31 @@ public enum CleanupModel: String, CaseIterable, Identifiable, Sendable {
         case .custom: customModel?.fileName ?? "custom.gguf"
         }
     }
+    /// The Hugging Face commit the built-in file is pinned to, so a repo update cannot silently change what Murmur
+    /// downloads. A custom model follows `main`, because the user picked the file themselves.
+    public var revision: String? {
+        switch self {
+        case .murmurClean: "bad305e9d2373f706e048e250b75f7fb471692fb"
+        case .lfm3: "cd0c74c575b5c416f3011b5b4c298077f26ca8c2"
+        case .custom: nil
+        }
+    }
+    /// SHA-256 of the pinned file, checked after download. nil for a custom model, whose file Murmur cannot vouch for.
+    public var sha256: String? {
+        switch self {
+        case .murmurClean: "5254afa6842453930b7e9be384399d3ffc85d289b77b8b08a8ab2ed8d3943fd9"
+        case .lfm3: "3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4"
+        case .custom: nil
+        }
+    }
     public var downloadURL: URL {
         switch self {
-        case .murmurClean: URL(string: "https://huggingface.co/bonusobjective/murmur-clean-350m/resolve/main/murmur-clean-q8_0.gguf")!
-        case .lfm3: URL(string: "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/resolve/main/LFM3-1.7B-Q4_K_M.gguf")!
+        case .murmurClean: URL(string: "https://huggingface.co/bonusobjective/murmur-clean-350m/resolve/\(revision ?? "main")/murmur-clean-q8_0.gguf")!
+        case .lfm3: URL(string: "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/resolve/\(revision ?? "main")/LFM3-1.7B-Q4_K_M.gguf")!
         case .custom: customModel?.downloadURL ?? URL(string: "https://huggingface.co")!
         }
     }
+    /// The exact size of the pinned file, used for download progress before the server answers.
     public var approximateBytes: Int64 {
         switch self {
         case .murmurClean: 379_220_000
@@ -161,5 +179,24 @@ public enum ModelStorage {
 
     public static func remove(_ model: CleanupModel) throws {
         if model.isInstalled { try FileManager.default.removeItem(at: model.url) }
+        let part = ModelDownloader.partURL(for: model.url)
+        if FileManager.default.fileExists(atPath: part.path) { try FileManager.default.removeItem(at: part) }
+        removeStalePartials()
+    }
+
+    /// Deletes `.part` files left by downloads that were abandoned more than `age` ago, so a cancelled download does
+    /// not sit in Application Support forever. A recent one is kept, because it is what the next attempt resumes from.
+    @discardableResult
+    public static func removeStalePartials(olderThan age: TimeInterval = 7 * 24 * 60 * 60, in folder: URL = tidyFolder) -> Int {
+        let keys: [URLResourceKey] = [.contentModificationDateKey, .isRegularFileKey]
+        guard let files = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: keys) else { return 0 }
+        let cutoff = Date().addingTimeInterval(-age)
+        var removed = 0
+        for case let file as URL in files where file.pathExtension == "part" {
+            guard let values = try? file.resourceValues(forKeys: Set(keys)), values.isRegularFile == true,
+                  let modified = values.contentModificationDate, modified < cutoff else { continue }
+            if (try? FileManager.default.removeItem(at: file)) != nil { removed += 1 }
+        }
+        return removed
     }
 }

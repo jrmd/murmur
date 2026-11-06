@@ -3,12 +3,17 @@ import llama
 
 public protocol TextTidying: Sendable {
     func prepare() async throws
+    /// The same as `prepare()`, reporting download progress as a fraction from 0 to 1.
+    func prepare(progress: @escaping @Sendable (Double) -> Void) async throws
     func tidy(_ text: String, dictionary: [DictionaryEntry], level: CleanupLevel) async throws -> String
     /// Frees the model's memory (used before its file is removed).
     func unload() async
 }
 
 public extension TextTidying {
+    /// A tidier only has to implement one of the two `prepare` methods; the other forwards to it.
+    func prepare() async throws { try await prepare(progress: { _ in }) }
+    func prepare(progress: @escaping @Sendable (Double) -> Void) async throws { try await prepare() }
     func tidy(_ text: String, dictionary: [DictionaryEntry]) async throws -> String { try await tidy(text, dictionary: dictionary, level: .balanced) }
     func unload() async {}
 }
@@ -158,15 +163,13 @@ public actor LlamaTidier: TextTidying {
         self.modelURL = modelURL ?? model.url
     }
     deinit { if let model { llama_model_free(model) } }
-    public func prepare() async throws {
+    public func prepare(progress: @escaping @Sendable (Double) -> Void) async throws {
         if model != nil { return }
         if cleanupModel == .custom, CustomCleanupModel.stored == nil { throw CoreError.message("Choose a custom clean-up model in Settings first.") }
         if !FileManager.default.fileExists(atPath: modelURL.path) {
-            try FileManager.default.createDirectory(at: modelURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let (temporary, response) = try await URLSession.shared.download(from: cleanupModel.downloadURL)
-            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw CoreError.message("Could not download \(cleanupModel.displayName).") }
-            guard Self.isGGUF(temporary) else { try? FileManager.default.removeItem(at: temporary); throw CoreError.message("\(cleanupModel.displayName) is not a GGUF model file.") }
-            try FileManager.default.moveItem(at: temporary, to: modelURL)
+            let expected = cleanupModel.approximateBytes
+            let downloader = ModelDownloader(expectedBytes: expected > 0 ? expected : nil)
+            try await downloader.download(from: cleanupModel.downloadURL, to: modelURL, expectedSHA256: cleanupModel.sha256, progress: progress)
         }
         llama_backend_init()
         var params = llama_model_default_params(); params.n_gpu_layers = 99
