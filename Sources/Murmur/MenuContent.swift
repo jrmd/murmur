@@ -88,16 +88,16 @@ struct MenuContent: View {
 
     // MARK: Banners
 
-    private struct Banner { let title: String; let message: String; let detail: String?; let severe: Bool }
+    private struct Banner { let title: LocalizedStringKey; let message: Text; let detail: String?; let severe: Bool }
     private var banner: Banner? {
         if let failure = controller.cleanupNotice {
-            return Banner(title: "Clean-up skipped", message: "Clean-up failed, so Murmur pasted the raw transcript.", detail: failure, severe: false)
+            return Banner(title: "Clean-up skipped", message: Text("Clean-up failed, so Murmur pasted the raw transcript."), detail: failure, severe: false)
         }
         if controller.status == .error, let message = controller.errorMessage {
-            return Banner(title: "Dictation failed", message: message, detail: nil, severe: true)
+            return Banner(title: "Dictation failed", message: Text(verbatim: message), detail: nil, severe: true)
         }
         if let notice = controller.notice {
-            return Banner(title: "Recording stopped", message: notice, detail: nil, severe: false)
+            return Banner(title: "Recording stopped", message: Text(verbatim: notice), detail: nil, severe: false)
         }
         return nil
     }
@@ -116,7 +116,7 @@ struct MenuContent: View {
                     }.buttonStyle(.plain)
                 }
             }
-            Text(banner.message).font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            banner.message.font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if showDetails, let detail = banner.detail {
                 Text(detail).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(.tertiary).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             }
@@ -148,7 +148,7 @@ struct MenuContent: View {
                     Capsule().fill(.white).frame(width: max(6, proxy.size.width * CGFloat(fraction ?? 0.06)))
                 }
             }.frame(height: 4)
-            Text(controller.prepareDescription.isEmpty ? "Starting…" : controller.prepareDescription)
+            (controller.prepareDescription.isEmpty ? Text("Starting…") : Text(verbatim: controller.prepareDescription))
                 .font(.system(size: 12)).opacity(0.9)
         }
         .foregroundStyle(.white)
@@ -166,7 +166,14 @@ private struct Rule: View {
 private struct StatusBadge: View {
     enum Kind { case ready, setup, listening, working }
     let status: Kind
-    private var label: String { [Kind.ready: "Ready", .setup: "Setup needed", .listening: "Listening", .working: "Working…"][status]! }
+    private var label: LocalizedStringKey {
+        switch status {
+        case .ready: "Ready"
+        case .setup: "Setup needed"
+        case .listening: "Listening"
+        case .working: "Working…"
+        }
+    }
     private var tint: Color { [Kind.ready: Color.murmurGreen, .setup: .murmurAmber, .listening: .murmurCoral, .working: .murmurCoral][status]! }
     var body: some View {
         HStack(spacing: 5) {
@@ -181,7 +188,8 @@ private struct StatusBadge: View {
 
 private struct MenuRow: View {
     let symbol: String
-    let title: String
+    let title: LocalizedStringKey
+    /// Already-formatted text, such as the last dictation, shown verbatim.
     var subtitle: String?
     var shortcut: String?
     var enabled = true
@@ -213,14 +221,14 @@ private struct MenuRow: View {
 
 private struct MenuToggleRow: View {
     let symbol: String
-    let title: String
+    let title: LocalizedStringKey
     @Binding var isOn: Bool
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol).font(.system(size: 13)).foregroundStyle(.secondary).frame(width: 18)
             Text(title).font(.system(size: 13.5))
             Spacer()
-            Toggle("", isOn: $isOn).toggleStyle(.switch).labelsHidden().tint(.murmurCoral).controlSize(.small)
+            Toggle(isOn: $isOn) { EmptyView() }.toggleStyle(.switch).labelsHidden().tint(.murmurCoral).controlSize(.small)
         }
         .padding(.horizontal, 10).padding(.vertical, 5)
     }

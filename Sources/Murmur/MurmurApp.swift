@@ -14,7 +14,7 @@ struct MurmurApp: App {
             HStack(spacing: 3) {
                 Image(nsImage: BrandAssets.menuBarImage(recording: controller.status == .listening))
                 #if DEBUG
-                Text("dev")
+                Text(verbatim: "dev")
                 #endif
             }
             .accessibilityLabel(controller.menuTitle)

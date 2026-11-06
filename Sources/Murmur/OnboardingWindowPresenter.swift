@@ -17,7 +17,7 @@ final class OnboardingWindowPresenter: NSObject, NSWindowDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Welcome to Murmur"
+            window.title = String(localized: "Welcome to Murmur", comment: "Title of the setup window, also used as its accessibility title.")
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.isOpaque = false

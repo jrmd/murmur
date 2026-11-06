@@ -81,12 +81,12 @@ struct CustomCleanupSheet: View {
 
     private func find() async {
         guard let reference = HuggingFace.parse(link) else {
-            lookup = .failed("That doesn’t look like a Hugging Face link. Paste a model page URL or owner/name."); return
+            lookup = .failed(String(localized: "That doesn’t look like a Hugging Face link. Paste a model page URL or owner/name.", comment: "Error in the custom clean-up sheet when the pasted link is not a Hugging Face model page.")); return
         }
         lookup = .loading
         do {
             let found = try await HuggingFace.listGGUFRepository(repo: reference.repo)
-            guard !found.files.isEmpty else { lookup = .failed("\(reference.repo) has no GGUF files Murmur can run. Look for a repo with “GGUF” in its name."); return }
+            guard !found.files.isEmpty else { lookup = .failed(String(localized: "\(reference.repo) has no GGUF files Murmur can run. Look for a repo with “GGUF” in its name.", comment: "Error in the custom clean-up sheet when the Hugging Face repo has no usable GGUF file. The placeholder is the repo name.")); return }
             repo = reference.repo; files = found.files; revision = found.revision
             file = found.files.first { $0.name == reference.fileName }?.name ?? HuggingFace.preferred(found.files)?.name ?? found.files[0].name
             lookup = .idle

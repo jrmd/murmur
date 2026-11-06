@@ -227,7 +227,7 @@ struct OnboardingView: View {
         }
     }
 
-    private func featureCard(_ symbol: String, _ title: String, _ detail: String) -> some View {
+    private func featureCard(_ symbol: String, _ title: LocalizedStringKey, _ detail: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             IconChip(symbol: symbol, size: 32).padding(.bottom, 7)
             Text(title).font(.system(size: 14, weight: .semibold)).tracking(-0.1).foregroundStyle(OB.text)
@@ -269,8 +269,8 @@ struct OnboardingView: View {
             } else {
                 HStack(alignment: .top, spacing: 28) {
                     VStack(alignment: .leading, spacing: 14) {
-                        NumberedStep(number: 1, mark: .current, text: Text("Click ") + Text("Allow Microphone").bold() + Text(" below."))
-                        NumberedStep(number: 2, mark: .future, text: Text("macOS shows a prompt. Choose ") + Text("Allow").bold() + Text("."))
+                        NumberedStep(number: 1, mark: .current, text: Text("Click \(Text("Allow Microphone").bold()) below."))
+                        NumberedStep(number: 2, mark: .future, text: Text("macOS shows a prompt. Choose \(Text("Allow").bold())."))
                         NumberedStep(number: 3, mark: .future, text: Text("That’s it. Murmur asks once and remembers."))
                         if micDenied {
                             Text("Microphone access was denied. Turn Murmur on in System Settings › Privacy & Security › Microphone.")
@@ -310,8 +310,8 @@ struct OnboardingView: View {
             Lead("Accessibility lets Murmur paste your finished dictation into the app you’re using.")
             HStack(alignment: .top, spacing: 28) {
                 VStack(alignment: .leading, spacing: 14) {
-                    NumberedStep(number: 1, mark: accessibility == .needed ? .current : .done, text: Text("Click ") + Text("Open System Settings").bold() + Text("."))
-                    NumberedStep(number: 2, mark: accessibility == .needed ? .future : accessibility == .waiting ? .current : .done, text: Text("Find ") + Text("Murmur").bold() + Text(" in the list and turn it on."))
+                    NumberedStep(number: 1, mark: accessibility == .needed ? .current : .done, text: Text("Click \(Text("Open System Settings").bold())."))
+                    NumberedStep(number: 2, mark: accessibility == .needed ? .future : accessibility == .waiting ? .current : .done, text: Text("Find \(Text("Murmur").bold()) in the list and turn it on."))
                     NumberedStep(number: 3, mark: accessibility == .granted ? .done : .future, text: Text("Come back here. This window updates on its own."))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -328,9 +328,9 @@ struct OnboardingView: View {
             Lead("Input Monitoring lets Murmur notice your shortcut while another app is in front.")
             HStack(alignment: .top, spacing: 28) {
                 VStack(alignment: .leading, spacing: 14) {
-                    NumberedStep(number: 1, mark: inputMonitoring == .needed ? .current : .done, text: Text("Click ") + Text("Open System Settings").bold() + Text("."))
-                    NumberedStep(number: 2, mark: inputMonitoring == .needed ? .future : inputMonitoring == .waiting ? .current : .done, text: Text("Turn on ") + Text("Murmur").bold() + Text(" under Input Monitoring."))
-                    NumberedStep(number: 3, mark: inputMonitoring == .granted && needsRelaunch ? .current : inputMonitoring == .granted ? .done : .future, text: Text("Relaunch Murmur").bold() + Text(" so macOS applies the change."))
+                    NumberedStep(number: 1, mark: inputMonitoring == .needed ? .current : .done, text: Text("Click \(Text("Open System Settings").bold())."))
+                    NumberedStep(number: 2, mark: inputMonitoring == .needed ? .future : inputMonitoring == .waiting ? .current : .done, text: Text("Turn on \(Text("Murmur").bold()) under Input Monitoring."))
+                    NumberedStep(number: 3, mark: inputMonitoring == .granted && needsRelaunch ? .current : inputMonitoring == .granted ? .done : .future, text: Text("\(Text("Relaunch Murmur").bold()) so macOS applies the change."))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 SettingsIllustration(pane: "Input Monitoring", caption: "Allow the apps below to monitor input from your keyboard.", murmurOn: inputMonitoring == .granted, highlight: inputMonitoring != .granted)
@@ -338,7 +338,7 @@ struct OnboardingView: View {
             if inputMonitoring == .granted && needsRelaunch {
                 HStack(spacing: 12) {
                     Image(systemName: "arrow.clockwise").font(.system(size: 15, weight: .semibold)).foregroundStyle(OB.amberText).frame(width: 24).accessibilityHidden(true)
-                    (Text("One quick relaunch. ").bold() + Text("macOS often needs Murmur to restart before the shortcut works. You’ll come straight back to this step."))
+                    Text("\(Text("One quick relaunch.").bold()) macOS often needs Murmur to restart before the shortcut works. You’ll come straight back to this step.")
                         .font(.system(size: 12.5)).foregroundStyle(OB.secondary).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
                     Button("Relaunch Murmur") { controller.relaunch() }.buttonStyle(GlassCapsuleStyle(small: true))
@@ -356,7 +356,7 @@ struct OnboardingView: View {
 
     private var shortcutStep: some View {
         content {
-            StepHeader(symbol: "", customIcon: AnyView(Text("fn").font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.murmurCoral)
+            StepHeader(symbol: "", customIcon: AnyView(Text(verbatim: "fn").font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.murmurCoral)
                 .padding(.horizontal, 6).frame(height: 24).overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.murmurCoral, lineWidth: 1.6))),
                        eyebrow: "Step 5 of 7 · Shortcut", title: "Choose your shortcut")
             Lead("Pick how you start dictating. You can change this later in Settings.")
@@ -382,7 +382,7 @@ struct OnboardingView: View {
             .background(KeyRecorder(capturing: $capturing, keyCode: $controller.hotkeyCode, modifiers: $controller.hotkeyModifiers))
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "sparkles").font(.system(size: 11)).foregroundStyle(OB.tertiary).padding(.top, 2).accessibilityHidden(true)
-                (Text("fn (") + Text(Image(systemName: "globe")) + Text(") is the default because it rarely clashes with other apps. If it opens the emoji picker or starts system dictation, set System Settings › Keyboard › “Press ") + Text(Image(systemName: "globe")) + Text(" to” to “Do Nothing”."))
+                Text("fn (\(Text(Image(systemName: "globe"))) is the default because it rarely clashes with other apps. If it opens the emoji picker or starts system dictation, set System Settings › Keyboard › “Press \(Text(Image(systemName: "globe"))) to” to “Do Nothing”.")
                     .font(.system(size: 12.5)).foregroundStyle(OB.tertiary).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -395,7 +395,7 @@ struct OnboardingView: View {
         }
     }
 
-    private func modeCard(_ title: String, _ detail: String, _ symbol: String, _ mode: DictationMode) -> some View {
+    private func modeCard(_ title: LocalizedStringKey, _ detail: LocalizedStringKey, _ symbol: String, _ mode: DictationMode) -> some View {
         let selected = controller.mode == mode
         return Button { controller.mode = mode } label: {
             VStack(alignment: .leading, spacing: 6) {
@@ -452,7 +452,7 @@ struct OnboardingView: View {
             if modelsPhase == .failed, let message = controller.errorMessage {
                 HStack(spacing: 10) {
                     Image(systemName: isOffline(message) ? "wifi.slash" : "exclamationmark.triangle").foregroundStyle(OB.amberText).accessibilityHidden(true)
-                    Text(isOffline(message) ? "You appear to be offline. Connect to the internet and retry." : message)
+                    (isOffline(message) ? Text("You appear to be offline. Connect to the internet and retry.") : Text(verbatim: message))
                         .font(.system(size: 12.5)).foregroundStyle(OB.secondary).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
@@ -462,7 +462,7 @@ struct OnboardingView: View {
             } else {
                 HStack(spacing: 10) {
                     Image(systemName: "lock.shield").font(.system(size: 14)).foregroundStyle(Color.murmurCoral).accessibilityHidden(true)
-                    (Text("On-device and private. ").bold().foregroundStyle(OB.text) + Text("Your voice and text never leave this Mac.").foregroundStyle(OB.secondary))
+                    Text("\(Text("On-device and private.").bold().foregroundStyle(OB.text)) Your voice and text never leave this Mac.").foregroundStyle(OB.secondary)
                         .font(.system(size: 14))
                     Spacer(minLength: 0)
                 }
@@ -501,8 +501,8 @@ struct OnboardingView: View {
     // MARK: 7 Practice
 
     private var practiceStep: some View {
-        let listening = DebugPreview.practice == "listening" || controller.statusText == "Listening"
-        let working = controller.statusText == "Transcribing" || controller.statusText == "Tidying"
+        let listening = DebugPreview.practice == "listening" || controller.status == .listening
+        let working = controller.status == .transcribing || controller.status == .tidying
         let result: DictationResultView? = {
             if DebugPreview.practice == "result" {
                 return DictationResultView(final: "Can you pick up two oat milks and some dog food on the way home?",
@@ -513,8 +513,8 @@ struct OnboardingView: View {
         }()
         let shortcut = ShortcutLabel.parts(code: controller.hotkeyCode, modifiers: controller.hotkeyModifiers).map(\.label).joined(separator: " ")
         let instruction = controller.mode == .toggle
-            ? Text("Give it a go. Press ") + Text(shortcut).bold() + Text(" to start, say something, then press it again.")
-            : Text("Give it a go. Hold ") + Text(shortcut).bold() + Text(", say something, then let go.")
+            ? Text("Give it a go. Press \(Text(shortcut).bold()) to start, say something, then press it again.")
+            : Text("Give it a go. Hold \(Text(shortcut).bold()), say something, then let go.")
         return content {
             StepHeader(symbol: "checkmark.seal", eyebrow: "Step 7 of 7 · Try it", title: "You’re all set")
             Lead(instruction)
@@ -529,7 +529,7 @@ struct OnboardingView: View {
                     }
                 }
                 if let result {
-                    (Text(result.final) + Text(" ").foregroundStyle(Color.murmurCoral)).font(.system(size: 16)).tracking(-0.15).foregroundStyle(OB.text)
+                    (Text(result.final) + Text(verbatim: " ").foregroundStyle(Color.murmurCoral)).font(.system(size: 16)).tracking(-0.15).foregroundStyle(OB.text)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(result.youSaid).font(.system(size: 13)).foregroundStyle(OB.tertiary).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
                 } else {
@@ -550,13 +550,13 @@ struct OnboardingView: View {
             GlassEffectContainer(spacing: 12) {
                 HStack(spacing: 12) {
                     tip(AnyView(Image("MenuBarIcon").resizable().renderingMode(.template).frame(width: 16, height: 16).foregroundStyle(Color.murmurCoral)), "Murmur lives in your menu bar", "Settings, history and models are there.")
-                    tip(AnyView(Text("fn").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.murmurCoral)), "Hold \(shortcut) anywhere", "Mail, Slack, Notes, your code editor…")
+                    tip(AnyView(Text(verbatim: "fn").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.murmurCoral)), "Hold \(shortcut) anywhere", "Mail, Slack, Notes, your code editor…")
                 }
             }
         }
     }
 
-    private func tip(_ icon: AnyView, _ title: String, _ detail: String) -> some View {
+    private func tip(_ icon: AnyView, _ title: LocalizedStringKey, _ detail: LocalizedStringKey) -> some View {
         HStack(spacing: 12) {
             icon.frame(width: 30, height: 30).background(Color.murmurCoral.opacity(0.16), in: RoundedRectangle(cornerRadius: 9, style: .continuous)).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
@@ -598,7 +598,8 @@ private enum PermissionState {
 private struct ModelRow: View {
     enum RowState { case idle, queued, downloading(Double?, started: Date?), ready }
     let symbol: String
-    let name: String
+    let name: LocalizedStringKey
+    /// Composed from the model's own description and its size, so it is shown verbatim.
     let detail: String
     /// Used for "x% of size" while downloading.
     let size: String
@@ -668,7 +669,9 @@ private struct ModelRow: View {
         guard let started, fraction > 0.03, fraction < 1 else { return nil }
         let elapsed = Date().timeIntervalSince(started)
         let remaining = elapsed / fraction * (1 - fraction)
-        return remaining < 60 ? "About \(max(5, Int(remaining / 5) * 5)) seconds left" : "About \(Int((remaining / 60).rounded(.up))) min left"
+        return remaining < 60
+            ? String(localized: "About \(max(5, Int(remaining / 5) * 5)) seconds left", comment: "Estimated download time left, in seconds. The placeholder is a rounded number of seconds.")
+            : String(localized: "About \(Int((remaining / 60).rounded(.up))) min left", comment: "Estimated download time left, in minutes. The placeholder is a rounded number of minutes.")
     }
 }
 
@@ -703,13 +706,13 @@ private struct DictationResultView {
         let removed = Set(finalWords.difference(from: rawWords.map(norm)).removals.compactMap { change -> Int? in
             if case .remove(let offset, _, _) = change { return offset } else { return nil }
         })
-        var out = AttributedString("You said: “")
+        var out = AttributedString(String(localized: "You said: “", comment: "Start of the practice result, before the words the user dictated. Ends with an opening curly quote."))
         for (index, word) in rawWords.enumerated() {
             var piece = AttributedString(String(word) + (index < rawWords.count - 1 ? " " : ""))
             if removed.contains(index) { piece.strikethroughStyle = .single }
             out += piece
         }
-        out += AttributedString("”")
+        out += AttributedString(String(localized: "”", comment: "Closing curly quote that ends the words the user dictated in the practice result."))
         return out
     }
 }

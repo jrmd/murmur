@@ -5,7 +5,11 @@ import SwiftUI
 
 enum IslandAction: Equatable {
     case openMicrophoneSettings, openSetup
-    var label: String { self == .openSetup ? "Open Murmur" : "Open Settings" }
+    var label: String {
+        self == .openSetup
+            ? String(localized: "Open Murmur", comment: "Button in the dictation overlay that brings the app forward.")
+            : String(localized: "Open Settings", comment: "Button in the dictation overlay that opens System Settings.")
+    }
 }
 
 enum IslandPhase: Equatable {
@@ -71,8 +75,8 @@ final class OverlayPresenter {
         if controller.isPracticing { hide(); return }
         switch controller.status {
         case .listening: show(.listening)
-        case .transcribing: show(.working("Transcribing…"))
-        case .tidying: show(.working("Tidying…"))
+        case .transcribing: show(.working(String(localized: "Transcribing…", comment: "Overlay label while speech is being turned into text.")))
+        case .tidying: show(.working(String(localized: "Tidying…", comment: "Overlay label while the clean-up model rewrites the transcript.")))
         case .error:
             show(errorPhase(controller))
             scheduleDismiss(after: 6)
@@ -90,7 +94,8 @@ final class OverlayPresenter {
     /// Hides the island at once, for a dictation the user abandoned.
     func dismiss() { hide() }
 
-    func showPasted(text: String, appName: String?, seconds: Double?, verb: String = "Pasted") {
+    func showPasted(text: String, appName: String?, seconds: Double?,
+                    verb: String = String(localized: "Pasted", comment: "Overlay label after a dictation was pasted into the frontmost app.")) {
         let flat = text.replacingOccurrences(of: "\n", with: " ")
         show(.pasted(preview: String(flat.prefix(120)), app: appName, seconds: seconds, verb: verb))
         scheduleDismiss(after: 1.6)
@@ -124,19 +129,26 @@ final class OverlayPresenter {
     // MARK: Internals
 
     private func errorPhase(_ controller: AppController) -> IslandPhase {
-        let message = controller.errorMessage ?? "Something went wrong."
-        guard let kind = controller.lastError?.kind else { return .error(title: "Couldn’t dictate", message: message, action: nil) }
+        let message = controller.errorMessage ?? String(localized: "Something went wrong.", comment: "Fallback message in the dictation overlay when no error text is available.")
+        let failed = String(localized: "Couldn’t dictate", comment: "Title of the dictation overlay when a dictation failed.")
+        guard let kind = controller.lastError?.kind else { return .error(title: failed, message: message, action: nil) }
         switch kind {
         case .microphoneDenied:
-            return .error(title: "No mic access", message: "Murmur can’t use the microphone.", action: .openMicrophoneSettings)
+            return .error(title: String(localized: "No mic access", comment: "Title of the dictation overlay when microphone permission was refused."),
+                          message: String(localized: "Murmur can’t use the microphone.", comment: "Message in the dictation overlay when microphone permission was refused."),
+                          action: .openMicrophoneSettings)
         case .noMicrophone:
-            return .error(title: "No mic", message: "No microphone found. Pick an input.", action: .openMicrophoneSettings)
+            return .error(title: String(localized: "No mic", comment: "Title of the dictation overlay when no microphone was found."),
+                          message: String(localized: "No microphone found. Pick an input.", comment: "Message in the dictation overlay when no microphone was found."),
+                          action: .openMicrophoneSettings)
         case .modelsNotReady:
-            return .error(title: "Models not ready", message: "Murmur is still setting up its local models.", action: .openSetup)
+            return .error(title: String(localized: "Models not ready", comment: "Title of the dictation overlay when the models are still loading."),
+                          message: String(localized: "Murmur is still setting up its local models.", comment: "Message in the dictation overlay when the models are still loading."),
+                          action: .openSetup)
         case .microphoneChanged:
-            return .error(title: "Microphone changed", message: message, action: nil)
+            return .error(title: String(localized: "Microphone changed", comment: "Title of the dictation overlay when the audio input changed mid-recording."), message: message, action: nil)
         case .busy, .modelChanged, .other:
-            return .error(title: "Couldn’t dictate", message: message, action: nil)
+            return .error(title: failed, message: message, action: nil)
         }
     }
 
@@ -179,7 +191,7 @@ final class OverlayPresenter {
         announcedKey = key
         switch phase {
         case .hidden: return
-        case .listening: announce("Listening")
+        case .listening: announce(String(localized: "Listening", comment: "Dictation state: the microphone is recording."))
         case .working(let label): announce(label.replacingOccurrences(of: "…", with: ""))
         case .pasted(_, _, _, let verb): announce(verb)
         case .error(let title, _, _): announce(title)

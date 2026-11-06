@@ -38,7 +38,7 @@ final class AppController: ObservableObject {
     @Published private(set) var prepareFraction: Double?
     @Published private(set) var audioLevel: Float = 0
     @Published private(set) var microphoneLevel: Float = 0
-    @Published private(set) var inputDeviceName = "Default microphone"
+    @Published private(set) var inputDeviceName = String(localized: "Default microphone", comment: "Name shown for the microphone when macOS does not report a device name.")
     @Published private(set) var lastResult: DictationResult?
     @Published private(set) var cleanupDuration: TimeInterval?
     @Published private(set) var lastInserted: String?
@@ -126,17 +126,40 @@ final class AppController: ObservableObject {
     }
 
     var permissionsReady: Bool { microphoneGranted && inputMonitoringGranted && accessibilityGranted }
-    var menuTitle: String { "Murmur · \(statusText)" }
+    /// The menu-bar item's accessibility label: the app name and what it is doing.
+    var menuTitle: String { String(localized: "Murmur · \(statusText)", comment: "Accessibility label of the menu-bar item: the app name, a middle dot, then the current state such as Listening.") }
 
     /// Display string for the readers that still show text (the menu bar title, Settings, onboarding).
     var statusText: String {
         switch status {
-        case .idle: "Idle"
-        case .preparing: "Preparing"
-        case .listening: "Listening"
-        case .transcribing: "Transcribing"
-        case .tidying: "Tidying"
-        case .error: "Error"
+        case .idle: String(localized: "Idle", comment: "Dictation state: nothing is happening.")
+        case .preparing: String(localized: "Preparing", comment: "Dictation state: the models are loading.")
+        case .listening: String(localized: "Listening", comment: "Dictation state: the microphone is recording.")
+        case .transcribing: String(localized: "Transcribing", comment: "Dictation state: speech is being turned into text.")
+        case .tidying: String(localized: "Tidying", comment: "Dictation state: the clean-up model is rewriting the transcript.")
+        case .error: String(localized: "Error", comment: "Dictation state: the last dictation failed.")
+        }
+    }
+
+    /// The app's own wording for a failure whose kind it knows, so no English text from the package reaches the UI.
+    /// Only `.other` keeps the package's message, which is the only one the app cannot describe itself.
+    static func localizedMessage(for error: Error) -> String {
+        guard let error = error as? DictationError else { return error.localizedDescription }
+        switch error.kind {
+        case .microphoneDenied:
+            return String(localized: "Murmur can’t use the microphone. Allow it in System Settings › Privacy & Security › Microphone.", comment: "Error shown when microphone permission was refused.")
+        case .noMicrophone:
+            return String(localized: "No microphone found. Pick an input in System Settings › Sound.", comment: "Error shown when no usable microphone exists.")
+        case .microphoneChanged:
+            return String(localized: "The microphone changed while Murmur was listening. Try again.", comment: "Error shown when the audio input route changed mid-recording.")
+        case .modelsNotReady:
+            return String(localized: "Murmur is still setting up its local models. Try again in a moment.", comment: "Error shown when dictation starts before the models finished loading.")
+        case .modelChanged:
+            return String(localized: "The model changed while Murmur was working. Try again.", comment: "Error shown when a model switch interrupted a dictation.")
+        case .busy:
+            return String(localized: "Murmur is busy with another dictation. Try again in a moment.", comment: "Error shown when a dictation is started while one is already running.")
+        case .other:
+            return error.message
         }
     }
 
@@ -248,9 +271,9 @@ final class AppController: ObservableObject {
     var microphoneAuthorization: AVAuthorizationStatus { AVCaptureDevice.authorizationStatus(for: .audio) }
     var inputMonitoringAuthorization: String {
         switch IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) {
-        case kIOHIDAccessTypeGranted: return "Granted"
-        case kIOHIDAccessTypeDenied: return "Denied"
-        default: return inputMonitoringGranted ? "Granted" : "Pending"
+        case kIOHIDAccessTypeGranted: return String(localized: "Granted", comment: "Permission state: the user allowed it.")
+        case kIOHIDAccessTypeDenied: return String(localized: "Denied", comment: "Permission state: the user refused it.")
+        default: return inputMonitoringGranted ? String(localized: "Granted", comment: "Permission state: the user allowed it.") : String(localized: "Pending", comment: "Permission state: the user has not answered yet.")
         }
     }
     var inputNeedsRelaunch: Bool { inputMonitoringGranted && !inputGrantedAtLaunch }
@@ -328,7 +351,7 @@ final class AppController: ObservableObject {
     func beginRecording() async {
         guard permissionsReady else { showOnboarding = true; return }
         // After "Skip for now" the shortcut must not start a large download on its own.
-        if !modelsReady && modelsSkipped { errorMessage = "Download the models in Settings › Models to start dictating."; status = .error; return }
+        if !modelsReady && modelsSkipped { errorMessage = String(localized: "Download the models in Settings › Models to start dictating.", comment: "Error shown when the user skipped the model download and then presses the dictation shortcut."); status = .error; return }
         errorMessage = nil
         lastError = nil
         notice = nil
@@ -342,7 +365,7 @@ final class AppController: ObservableObject {
             // The key may have been released while the microphone was opening; never leave it recording.
             if mode == .hold && !heldHotkey { await finishRecording() }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = AppController.localizedMessage(for: error)
             status = .error
         }
     }
@@ -358,7 +381,7 @@ final class AppController: ObservableObject {
             cleanupDuration = result.cleanupDuration
             if isPracticing { isPracticing = false } else { deliver(result.final, seconds: result.cleanupDuration) }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = AppController.localizedMessage(for: error)
             status = .error
         }
     }
@@ -383,20 +406,22 @@ final class AppController: ObservableObject {
         lastInserted = text
         guard outputMode == .paste else {
             TextInserter.copyOnly(text)
-            OverlayPresenter.shared.showPasted(text: text, appName: nil, seconds: seconds, verb: "Copied to clipboard")
+            OverlayPresenter.shared.showPasted(text: text, appName: nil, seconds: seconds,
+                                              verb: String(localized: "Copied to clipboard", comment: "Overlay label after a dictation was copied instead of pasted."))
             return
         }
         let app = NSWorkspace.shared.frontmostApplication?.localizedName
         guard TextInserter.insert(text) else {
             // Nothing could be posted: leave the text on the clipboard so the user can paste it themselves.
             TextInserter.copyOnly(text)
-            let failure = DictationError(.other, "Couldn't paste — text copied to clipboard")
+            let failure = DictationError(.other, String(localized: "Couldn't paste — text copied to clipboard", comment: "Error shown when Murmur could not paste the text and left it on the clipboard instead."))
             errorMessage = failure.message
             lastError = failure
             status = .error
             return
         }
-        OverlayPresenter.shared.showPasted(text: text, appName: app, seconds: seconds, verb: "Pasted")
+        OverlayPresenter.shared.showPasted(text: text, appName: app, seconds: seconds,
+                                          verb: String(localized: "Pasted", comment: "Overlay label after a dictation was pasted into the frontmost app."))
     }
 
     // MARK: Models and storage
@@ -494,7 +519,7 @@ final class AppController: ObservableObject {
 
     func setLaunchAtLogin(_ enabled: Bool) {
         do { if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() } }
-        catch { errorMessage = "Launch at login: \(error.localizedDescription)" }
+        catch { errorMessage = String(localized: "Launch at login: \(error.localizedDescription)", comment: "Error shown when turning launch at login on or off failed. The placeholder is the system's own reason.") }
         objectWillChange.send()
     }
 
@@ -553,7 +578,7 @@ final class AppController: ObservableObject {
 
     private func startMicrophoneMeter() {
         stopMicrophoneMeter()
-        inputDeviceName = AVCaptureDevice.default(for: .audio)?.localizedName ?? "Default microphone"
+        inputDeviceName = AVCaptureDevice.default(for: .audio)?.localizedName ?? String(localized: "Default microphone", comment: "Name shown for the microphone when macOS does not report a device name.")
         let engine = AVAudioEngine()
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
@@ -567,7 +592,7 @@ final class AppController: ObservableObject {
             DispatchQueue.main.async { self?.microphoneLevel = min(1, max(0, rms * 8)) }
         }
         do { try engine.start(); meterEngine = engine }
-        catch { inputDeviceName = "Microphone unavailable" }
+        catch { inputDeviceName = String(localized: "Microphone unavailable", comment: "Shown instead of the microphone name when the input device could not be opened.") }
     }
 
     private func subscribeToPipeline() {
@@ -597,7 +622,7 @@ final class AppController: ObservableObject {
                         status = .idle; menuSymbol = "waveform"
                     } else {
                         lastError = error
-                        errorMessage = error.message
+                        errorMessage = AppController.localizedMessage(for: error)
                         status = .error; menuSymbol = "exclamationmark.triangle"
                     }
                 }
@@ -617,7 +642,7 @@ final class AppController: ObservableObject {
                 switch event {
                 case .maxDurationReached:
                     // The recording hit its length limit: finish it rather than lose what was said.
-                    let limit = "Reached the 5-minute limit"
+                    let limit = String(localized: "Reached the 5-minute limit", comment: "Notice shown when a recording hit Murmur's maximum length and was stopped automatically.")
                     notice = limit
                     OverlayPresenter.shared.announce(limit)
                     enqueueFlow { await self.finishRecording() }

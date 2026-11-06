@@ -33,12 +33,24 @@ struct SettingsView: View {
 // MARK: - Shared pieces
 
 private struct SettingLabel: View {
-    let title: String
-    var subtitle: String?
+    let title: LocalizedStringKey
+    var subtitle: Text?
+
+    init(title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil) {
+        self.title = title
+        self.subtitle = subtitle.map { Text($0) }
+    }
+
+    /// For a value that must not be looked up, such as a folder path.
+    init(title: LocalizedStringKey, verbatimSubtitle: String) {
+        self.title = title
+        self.subtitle = Text(verbatim: verbatimSubtitle)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-            if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+            if let subtitle { subtitle.font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
         }
     }
 }
@@ -71,7 +83,7 @@ private struct GeneralSettings: View {
     @ObservedObject var controller: AppController
     @State private var capturing = false
     @State private var capturingPaste = false
-    @State private var pasteHint: String?
+    @State private var pasteHint: LocalizedStringKey?
     @State private var launchAtLogin = false
 
     var body: some View {
@@ -188,7 +200,7 @@ private struct ShortcutField: View {
 }
 
 private struct ResetShortcutButton: View {
-    let title: String
+    let title: LocalizedStringKey
     let action: () -> Void
 
     var body: some View {
@@ -204,8 +216,8 @@ private struct ResetShortcutButton: View {
 private struct PermissionRow: View {
     let symbol: String
     let colors: [Color]
-    let title: String
-    let subtitle: String
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey
     let granted: Bool
     let action: () -> Void
 
@@ -249,7 +261,7 @@ private struct ModelsSettings: View {
                     ModelLine(
                         symbol: "waveform", tint: model == .parakeetV3 ? .murmurCoral : .gray,
                         title: model.displayName,
-                        detail: [model.detail, sizeText(installed: model.isInstalled, bytes: model.installedBytes, approximate: model.approximateBytes), model == controller.speechModel && model.isInstalled ? "In use" : nil].compactMap { $0 }.joined(separator: " · "),
+                        detail: [model.detail, sizeText(installed: model.isInstalled, bytes: model.installedBytes, approximate: model.approximateBytes), model == controller.speechModel && model.isInstalled ? inUse : nil].compactMap { $0 }.joined(separator: " · "),
                         state: state(installed: model.isInstalled, active: model == controller.speechModel),
                         busy: controller.isPreparing,
                         progress: preparing ? controller.prepareFraction : nil,
@@ -266,7 +278,7 @@ private struct ModelsSettings: View {
                     ModelLine(
                         symbol: "sparkles", tint: model == .murmurClean ? .murmurCoral : Color(red: 0.45, green: 0.4, blue: 1),
                         title: model.displayName,
-                        detail: [model.detail, sizeText(installed: model.isInstalled, bytes: model.installedBytes, approximate: model.approximateBytes), active && model.isInstalled ? "In use" : nil].compactMap { $0 }.joined(separator: " · "),
+                        detail: [model.detail, sizeText(installed: model.isInstalled, bytes: model.installedBytes, approximate: model.approximateBytes), active && model.isInstalled ? inUse : nil].compactMap { $0 }.joined(separator: " · "),
                         state: state(installed: model.isInstalled, active: active),
                         busy: preparing, locked: controller.isPreparing,
                         progress: preparing ? controller.prepareFraction : nil,
@@ -282,17 +294,17 @@ private struct ModelsSettings: View {
                             ForEach(CleanupLevel.allCases) { Text($0.displayName).tag($0) }
                         }.labelsHidden().pickerStyle(.segmented).frame(width: 220)
                     } label: {
-                        SettingLabel(title: "Strictness", subtitle: controller.cleanupLevel.summary)
+                        SettingLabel(title: "Strictness", verbatimSubtitle: controller.cleanupLevel.summary)
                     }
                 }
             } header: { Text("Clean-up") } footer: { Text(controller.cleanupModel.summary) }
             Section("Storage") {
                 LabeledContent {
                     Button("Show in Finder") { reveal(ModelStorage.speechFolder) }.controlSize(.small)
-                } label: { SettingLabel(title: "Speech models", subtitle: ModelStorage.speechFolder.path.abbreviatingHome) }
+                } label: { SettingLabel(title: "Speech models", verbatimSubtitle: ModelStorage.speechFolder.path.abbreviatingHome) }
                 LabeledContent {
                     Button("Show in Finder") { reveal(ModelStorage.tidyFolder) }.controlSize(.small)
-                } label: { SettingLabel(title: "Clean-up model", subtitle: ModelStorage.tidyFolder.path.abbreviatingHome) }
+                } label: { SettingLabel(title: "Clean-up model", verbatimSubtitle: ModelStorage.tidyFolder.path.abbreviatingHome) }
                 LabeledContent("Space used") { Text(ByteCountFormatter.string(fromByteCount: ModelStorage.totalBytesUsed, countStyle: .file)).foregroundStyle(.secondary).monospacedDigit() }
             }
             if let error = controller.errorMessage, !controller.isPreparing {
@@ -318,7 +330,7 @@ private struct ModelsSettings: View {
             ModelLine(
                 symbol: "slider.horizontal.3", tint: .orange,
                 title: model.displayName,
-                detail: [model.detail, sizeText(installed: model.isInstalled, bytes: model.installedBytes, approximate: model.approximateBytes), active && model.isInstalled ? "In use" : nil].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "),
+                detail: [model.detail, sizeText(installed: model.isInstalled, bytes: model.installedBytes, approximate: model.approximateBytes), active && model.isInstalled ? inUse : nil].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "),
                 state: state(installed: model.isInstalled, active: active),
                 busy: preparing, locked: controller.isPreparing,
                 progress: preparing ? controller.prepareFraction : nil,
@@ -336,13 +348,16 @@ private struct ModelsSettings: View {
         }
     }
 
-    private var confirmTitle: String {
+    private var confirmTitle: Text {
         switch confirm {
-        case .speech(let m): "Remove \(m.displayName)?"
-        case .cleanup(let m): "Remove \(m.displayName)?"
-        case nil: ""
+        case .speech(let m): Text("Remove \(m.displayName)?")
+        case .cleanup(let m): Text("Remove \(m.displayName)?")
+        case nil: Text(verbatim: "")
         }
     }
+
+    /// The badge on the row of the model dictation currently uses.
+    private var inUse: String { String(localized: "In use", comment: "Badge on the model row that dictation is currently using.") }
 
     private func state(installed: Bool, active: Bool) -> ModelLine.State { installed ? (active ? .ready : .installed) : .missing }
 
@@ -494,7 +509,7 @@ private struct DictionarySettings: View {
 
     private func row(_ entry: DictionaryEntry) -> some View {
         let selected = selection == entry.id
-        let name = entry.heard.isEmpty ? "this word" : entry.heard
+        let name = entry.heard.isEmpty ? String(localized: "this word", comment: "Stands in for a dictionary entry's word in accessibility labels when the field is empty.") : entry.heard
         return HStack(spacing: 8) {
             TextField("heard", text: bind(entry, \.heard)).textFieldStyle(.plain).font(.system(size: 12.5, design: .monospaced))
                 .focused($focused, equals: entry.id).frame(maxWidth: .infinity, alignment: .leading)
@@ -503,9 +518,9 @@ private struct DictionarySettings: View {
             TextField("replacement", text: bind(entry, \.replacement)).textFieldStyle(.plain).font(.system(size: 13))
                 .focused($focused, equals: entry.id).frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityLabel("Replace with")
-            Toggle("", isOn: bind(entry, \.caseSensitive)).toggleStyle(.checkbox).labelsHidden().frame(width: 82)
+            Toggle(isOn: bind(entry, \.caseSensitive)) { EmptyView() }.toggleStyle(.checkbox).labelsHidden().frame(width: 82)
                 .accessibilityLabel("Match case for \(name)")
-            Toggle("", isOn: bind(entry, \.enabled)).toggleStyle(.checkbox).labelsHidden().frame(width: 36)
+            Toggle(isOn: bind(entry, \.enabled)) { EmptyView() }.toggleStyle(.checkbox).labelsHidden().frame(width: 36)
                 .accessibilityLabel("Enabled for \(name)")
         }
         .padding(.horizontal, 14).frame(height: 30)
@@ -560,7 +575,7 @@ private struct DictionarySettings: View {
                 .menuStyle(.button).menuIndicator(.hidden).fixedSize()
                 .accessibilityLabel("Import or export").help("Import or export")
             Spacer()
-            Text("\(store.entries.count) \(store.entries.count == 1 ? "word" : "words")").font(.caption).foregroundStyle(.tertiary).monospacedDigit()
+            Text("\(store.entries.count) words").font(.caption).foregroundStyle(.tertiary).monospacedDigit()
         }
         .buttonStyle(.plain).foregroundStyle(.secondary)
         .padding(.horizontal, 10).frame(height: 30)
@@ -610,11 +625,11 @@ private struct DictionarySettings: View {
     /// Merge (the default), Replace or Cancel; nil when the user cancels.
     private func askReplaceOrMerge() -> Bool? {
         let alert = NSAlert()
-        alert.messageText = "Replace your dictionary or merge?"
-        alert.informativeText = "Merging keeps the words you already have and updates any that match. Replacing removes them first."
-        alert.addButton(withTitle: "Merge")
-        alert.addButton(withTitle: "Replace")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(localized: "Replace your dictionary or merge?", comment: "Title of the alert shown when importing a JSON dictionary.")
+        alert.informativeText = String(localized: "Merging keeps the words you already have and updates any that match. Replacing removes them first.", comment: "Explanation in the alert shown when importing a JSON dictionary.")
+        alert.addButton(withTitle: String(localized: "Merge", comment: "Button that imports a dictionary without removing the existing words."))
+        alert.addButton(withTitle: String(localized: "Replace", comment: "Button that replaces the whole dictionary with the imported one."))
+        alert.addButton(withTitle: String(localized: "Cancel", comment: "Button that abandons the import."))
         switch alert.runModal() {
         case .alertFirstButtonReturn: return false
         case .alertSecondButtonReturn: return true
@@ -624,9 +639,9 @@ private struct DictionarySettings: View {
 
     private func report(_ applied: Int) {
         let alert = NSAlert()
-        alert.messageText = applied == 1 ? "Imported 1 word." : "Imported \(applied) words."
-        alert.informativeText = "Your dictionary now has \(store.entries.count) \(store.entries.count == 1 ? "word" : "words")."
-        alert.addButton(withTitle: "OK")
+        alert.messageText = String(localized: "Imported \(applied) words.", comment: "Alert after importing a dictionary. The placeholder is how many words were imported.")
+        alert.informativeText = String(localized: "Your dictionary now has \(store.entries.count) words.", comment: "Alert after importing a dictionary. The placeholder is how many words the dictionary holds now.")
+        alert.addButton(withTitle: String(localized: "OK", comment: "Button that dismisses an alert."))
         alert.runModal()
     }
 
@@ -646,7 +661,7 @@ private struct AboutSettings: View {
     @State private var showAcknowledgements = false
     private var version: String {
         let info = Bundle.main.infoDictionary
-        return "Version \(info?["CFBundleShortVersionString"] as? String ?? "0.1.0") (\(info?["CFBundleVersion"] as? String ?? "1"))"
+        return String(localized: "Version \(info?["CFBundleShortVersionString"] as? String ?? "0.1.0") (\(info?["CFBundleVersion"] as? String ?? "1"))", comment: "Version line in About: the marketing version, then the build number in brackets.")
     }
 
     var body: some View {
@@ -662,7 +677,7 @@ private struct AboutSettings: View {
             }
             Section("Updates") {
                 Toggle("Check for updates automatically", isOn: Binding(get: { updates.automaticallyChecks }, set: { updates.automaticallyChecks = $0 }))
-                LabeledContent("Last checked", value: updates.lastChecked.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "Never")
+                LabeledContent("Last checked", value: updates.lastChecked.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? String(localized: "Never", comment: "Shown as the last update check time when Murmur has never checked."))
                 Button("Check for Updates…") { updates.check() }.disabled(!updates.canCheck)
             }
             Section("Open source") {
@@ -696,7 +711,7 @@ private struct AboutSettings: View {
 }
 
 private struct LinkButton: View {
-    let title: String
+    let title: LocalizedStringKey
     let url: String
     var body: some View {
         Button { if let url = URL(string: url) { NSWorkspace.shared.open(url) } } label: {
@@ -709,7 +724,8 @@ private struct LinkButton: View {
 
 private struct AcknowledgementsView: View {
     @Environment(\.dismiss) private var dismiss
-    private let items: [(String, String, String)] = [
+    /// Name, description, link. The names are product names and stay as they are.
+    private let items: [(String, LocalizedStringKey, String)] = [
         ("FluidAudio", "Core ML speech recognition runtime for Apple silicon · Apache 2.0", "https://github.com/FluidInference/FluidAudio"),
         ("Parakeet TDT 0.6B", "NVIDIA speech recognition models · CC BY 4.0", "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3"),
         ("llama.cpp", "On-device inference for the clean-up model · MIT", "https://github.com/ggml-org/llama.cpp"),

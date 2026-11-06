@@ -1,0 +1,1238 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ Your voice and text never leave this Mac.": {
+      "comment": "Setup banner. The placeholder is a bold lead-in sentence.",
+      "extractionState": "extracted_with_value"
+    },
+    "%@ has no GGUF files Murmur can run. Look for a repo with “GGUF” in its name.": {
+      "comment": "Error in the custom clean-up sheet when the Hugging Face repo has no usable GGUF file. The placeholder is the repo name.",
+      "extractionState": "extracted_with_value"
+    },
+    "%@ macOS often needs Murmur to restart before the shortcut works. You’ll come straight back to this step.": {
+      "comment": "Setup banner. The placeholder is a bold lead-in sentence.",
+      "extractionState": "extracted_with_value"
+    },
+    "%@ so macOS applies the change.": {
+      "comment": "Setup instruction. The placeholder is a bold “Relaunch Murmur”.",
+      "extractionState": "extracted_with_value"
+    },
+    "%@ · %@ ready": {
+      "comment": "Menu header note. The placeholders are the speech and clean-up model names.",
+      "extractionState": "extracted_with_value"
+    },
+    "%lld words": {
+      "comment": "Dictionary footer: how many words the dictionary holds.",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld word"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld words"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld%%": {
+      "comment": "A number followed by a percent sign. Nothing to translate.",
+      "extractionState": "extracted_with_value",
+      "shouldTranslate": false
+    },
+    "%lld%% of %@": {
+      "comment": "Download progress. The first placeholder is a percentage, the second a file size.",
+      "extractionState": "extracted_with_value"
+    },
+    "A soft tick when Murmur starts and stops listening.": {
+      "comment": "Subtitle of the play-sounds toggle.",
+      "extractionState": "extracted_with_value"
+    },
+    "About": {
+      "comment": "Settings tab title.",
+      "extractionState": "extracted_with_value"
+    },
+    "About %lld min left": {
+      "comment": "Estimated download time left, in minutes. The placeholder is a rounded number of minutes.",
+      "extractionState": "extracted_with_value"
+    },
+    "About %lld seconds left": {
+      "comment": "Estimated download time left, in seconds. The placeholder is a rounded number of seconds.",
+      "extractionState": "extracted_with_value"
+    },
+    "Accessibility": {
+      "comment": "Settings permission row, and the name of the macOS Accessibility pane.",
+      "extractionState": "extracted_with_value"
+    },
+    "Accessibility lets Murmur paste your finished dictation into the app you’re using.": {
+      "comment": "Lead paragraph on the accessibility step.",
+      "extractionState": "extracted_with_value"
+    },
+    "Acknowledgements": {
+      "comment": "Title of the sheet listing third-party components.",
+      "extractionState": "extracted_with_value"
+    },
+    "Add Word": {
+      "comment": "Button that adds a dictionary entry.",
+      "extractionState": "extracted_with_value"
+    },
+    "Add names, brands and jargon that come out wrong,\nand Murmur will swap them in every time.": {
+      "comment": "Dictionary empty state detail.",
+      "extractionState": "extracted_with_value"
+    },
+    "Add word": {
+      "comment": "Tooltip on the button that adds a dictionary entry.",
+      "extractionState": "extracted_with_value"
+    },
+    "After a one-time model download, no internet needed.": {
+      "comment": "Welcome screen feature card detail.",
+      "extractionState": "extracted_with_value"
+    },
+    "After dictating": {
+      "comment": "Label of the output-mode picker.",
+      "extractionState": "extracted_with_value"
+    },
+    "Allow": {
+      "comment": "Button in the illustration of the macOS permission prompt.",
+      "extractionState": "extracted_with_value"
+    },
+    "Allow Microphone": {
+      "comment": "Setup footer: ask macOS for microphone access.",
+      "extractionState": "extracted_with_value"
+    },
+    "Allow the apps below to control your computer.": {
+      "comment": "Caption in the illustration of System Settings.",
+      "extractionState": "extracted_with_value"
+    },
+    "Allow the apps below to monitor input from your keyboard.": {
+      "comment": "Caption in the illustration of System Settings for Input Monitoring.",
+      "extractionState": "extracted_with_value"
+    },
+    "Almost there": {
+      "comment": "Setup step title after skipping the model download.",
+      "extractionState": "extracted_with_value"
+    },
+    "Back": {
+      "comment": "Setup footer: go to the previous step.",
+      "extractionState": "extracted_with_value"
+    },
+    "Bonus Objective clean-up model, fine-tuned from Liquid AI LFM2.5-350M · LFM Open License v1.0": {
+      "comment": "Acknowledgements description for Murmur Clean 350M.",
+      "extractionState": "extracted_with_value"
+    },
+    "Built with": {
+      "comment": "Section header in About listing the third-party components.",
+      "extractionState": "extracted_with_value"
+    },
+    "Cancel": {
+      "comment": "Button that abandons the import.",
+      "extractionState": "extracted_with_value"
+    },
+    "Changes save automatically. Murmur listens for the shortcut even when it’s in the background.": {
+      "comment": "Footer of the Shortcut section in Settings.",
+      "extractionState": "extracted_with_value"
+    },
+    "Check for Updates…": {
+      "comment": "Button that checks for a new version now.",
+      "extractionState": "extracted_with_value"
+    },
+    "Check for updates automatically": {
+      "comment": "Toggle for automatic update checks.",
+      "extractionState": "extracted_with_value"
+    },
+    "Choose your shortcut": {
+      "comment": "Setup step title.",
+      "extractionState": "extracted_with_value"
+    },
+    "Choose…": {
+      "comment": "Button that opens the custom clean-up model sheet.",
+      "extractionState": "extracted_with_value"
+    },
+    "Clean up dictation": {
+      "comment": "Toggle for the clean-up pass.",
+      "extractionState": "extracted_with_value"
+    },
+    "Clean-up": {
+      "comment": "Menu toggle that turns the clean-up pass on or off.",
+      "extractionState": "extracted_with_value"
+    },
+    "Clean-up failed, so Murmur pasted the raw transcript.": {
+      "comment": "Menu banner message when the clean-up model failed.",
+      "extractionState": "extracted_with_value"
+    },
+    "Clean-up model": {
+      "comment": "Name of the clean-up model row.",
+      "extractionState": "extracted_with_value"
+    },
+    "Clean-up model by Bonus Objective, based on LFM2.5": {
+      "comment": "Subtitle of the Murmur Clean model row in About.",
+      "extractionState": "extracted_with_value"
+    },
+    "Clean-up model by Liquid AI": {
+      "comment": "Subtitle of the LFM3 model row in About.",
+      "extractionState": "extracted_with_value"
+    },
+    "Clean-up skipped": {
+      "comment": "Menu banner title: the clean-up model failed and the raw transcript was pasted.",
+      "extractionState": "extracted_with_value"
+    },
+    "Cleaned up in %@ s": {
+      "comment": "Practice result badge. The placeholder is a duration in seconds.",
+      "extractionState": "extracted_with_value"
+    },
+    "Cleaning up…": {
+      "comment": "Practice area placeholder while the clean-up model runs.",
+      "extractionState": "extracted_with_value"
+    },
+    "Click %@ below.": {
+      "comment": "Setup instruction. The placeholder is the name of a button on the same screen.",
+      "extractionState": "extracted_with_value"
+    },
+    "Click %@.": {
+      "comment": "Setup instruction. The placeholder is the name of a button on the same screen.",
+      "extractionState": "extracted_with_value"
+    },
+    "Click Record, then press the key or combination you want.": {
+      "comment": "Hint under the shortcut recorder.",
+      "extractionState": "extracted_with_value"
+    },
+    "Click to record": {
+      "comment": "Hint in the shortcut recorder.",
+      "extractionState": "extracted_with_value"
+    },
+    "Click, then press the key or combination you want.": {
+      "comment": "Tooltip on the shortcut recorder.",
+      "extractionState": "extracted_with_value"
+    },
+    "Come back here. This window updates on its own.": {
+      "comment": "Setup step: the window refreshes once the permission is granted.",
+      "extractionState": "extracted_with_value"
+    },
+    "Continue": {
+      "comment": "Setup footer: go to the next step.",
+      "extractionState": "extracted_with_value"
+    },
+    "Copied to clipboard": {
+      "comment": "Overlay label after a dictation was copied instead of pasted.",
+      "extractionState": "extracted_with_value"
+    },
+    "Copy to clipboard only": {
+      "comment": "Output option: only put the text on the clipboard.",
+      "extractionState": "extracted_with_value"
+    },
+    "Core ML speech recognition runtime for Apple silicon · Apache 2.0": {
+      "comment": "Acknowledgements description for FluidAudio.",
+      "extractionState": "extracted_with_value"
+    },
+    "Couldn't paste — text copied to clipboard": {
+      "comment": "Error shown when Murmur could not paste the text and left it on the clipboard instead.",
+      "extractionState": "extracted_with_value"
+    },
+    "Couldn’t dictate": {
+      "comment": "Title of the dictation overlay when a dictation failed.",
+      "extractionState": "extracted_with_value"
+    },
+    "Custom clean-up model": {
+      "comment": "Title of the custom clean-up model sheet.",
+      "extractionState": "extracted_with_value"
+    },
+    "Custom model": {
+      "comment": "Label of the custom clean-up model row.",
+      "extractionState": "extracted_with_value"
+    },
+    "Default microphone": {
+      "comment": "Name shown for the microphone when macOS does not report a device name.",
+      "extractionState": "extracted_with_value"
+    },
+    "Denied": {
+      "comment": "Permission state: the user refused it.",
+      "extractionState": "extracted_with_value"
+    },
+    "Details": {
+      "comment": "Button in the menu that reveals the technical detail of a failure.",
+      "extractionState": "extracted_with_value"
+    },
+    "Dictation failed": {
+      "comment": "Menu banner title when a dictation failed.",
+      "extractionState": "extracted_with_value"
+    },
+    "Dictation shortcut": {
+      "comment": "Label of the dictation shortcut recorder.",
+      "extractionState": "extracted_with_value"
+    },
+    "Dictionary": {
+      "comment": "Settings tab title.",
+      "extractionState": "extracted_with_value"
+    },
+    "Done": {
+      "comment": "Button that closes the acknowledgements sheet.",
+      "extractionState": "extracted_with_value"
+    },
+    "Don’t Allow": {
+      "comment": "Button in the illustration of the macOS permission prompt.",
+      "extractionState": "extracted_with_value"
+    },
+    "Download": {
+      "comment": "Button that downloads a model.",
+      "extractionState": "extracted_with_value"
+    },
+    "Download models": {
+      "comment": "Setup footer: start the model download.",
+      "extractionState": "extracted_with_value"
+    },
+    "Download the models in Settings › Models to start dictating.": {
+      "comment": "Error shown when the user skipped the model download and then presses the dictation shortcut.",
+      "extractionState": "extracted_with_value"
+    },
+    "Downloading": {
+      "comment": "Status pill: the model is downloading.",
+      "extractionState": "extracted_with_value"
+    },
+    "Downloading and loading…": {
+      "comment": "Model row note while the file downloads and loads.",
+      "extractionState": "extracted_with_value"
+    },
+    "Edit…": {
+      "comment": "Button that opens the custom clean-up model sheet.",
+      "extractionState": "extracted_with_value"
+    },
+    "Enabled for %@": {
+      "comment": "Accessibility label of a dictionary checkbox. The placeholder is the word.",
+      "extractionState": "extracted_with_value"
+    },
+    "Error": {
+      "comment": "Dictation state: the last dictation failed.",
+      "extractionState": "extracted_with_value"
+    },
+    "Export…": {
+      "comment": "Menu item that exports the dictionary as CSV.",
+      "extractionState": "extracted_with_value"
+    },
+    "File": {
+      "comment": "Label of the GGUF file picker in the custom model sheet.",
+      "extractionState": "extracted_with_value"
+    },
+    "Find %@ in the list and turn it on.": {
+      "comment": "Setup instruction. The placeholder is the app name.",
+      "extractionState": "extracted_with_value"
+    },
+    "Find files": {
+      "comment": "Button that lists the GGUF files in a Hugging Face repo.",
+      "extractionState": "extracted_with_value"
+    },
+    "Finish": {
+      "comment": "Setup footer: close setup.",
+      "extractionState": "extracted_with_value"
+    },
+    "Fix names and jargon Murmur mishears.\nReplacements run on your Mac before text is pasted.": {
+      "comment": "Header of the dictionary tab.",
+      "extractionState": "extracted_with_value"
+    },
+    "General": {
+      "comment": "Settings tab title.",
+      "extractionState": "extracted_with_value"
+    },
+    "Get started": {
+      "comment": "Setup footer: start the setup steps.",
+      "extractionState": "extracted_with_value"
+    },
+    "GitHub": {
+      "comment": "A product name. Never translate.",
+      "extractionState": "extracted_with_value",
+      "shouldTranslate": false
+    },
+    "Give it a go. Hold %@, say something, then let go.": {
+      "comment": "Setup instruction. The placeholder is the dictation shortcut.",
+      "extractionState": "extracted_with_value"
+    },
+    "Give it a go. Press %@ to start, say something, then press it again.": {
+      "comment": "Setup instruction. The placeholder is the dictation shortcut.",
+      "extractionState": "extracted_with_value"
+    },
+    "Granted": {
+      "comment": "Permission state: the user allowed it.",
+      "extractionState": "extracted_with_value"
+    },
+    "Grant…": {
+      "comment": "Button that asks macOS for a permission.",
+      "extractionState": "extracted_with_value"
+    },
+    "Hear what you say.": {
+      "comment": "Subtitle of the microphone permission row.",
+      "extractionState": "extracted_with_value"
+    },
+    "Heard": {
+      "comment": "Column header in the dictionary table.",
+      "extractionState": "extracted_with_value"
+    },
+    "Hold": {
+      "comment": "Menu header before the shortcut keycaps, as in “Hold fn to dictate”.",
+      "extractionState": "extracted_with_value"
+    },
+    "Hold %@ anywhere": {
+      "comment": "Setup tip. The placeholder is the dictation shortcut, such as fn.",
+      "extractionState": "extracted_with_value"
+    },
+    "Hold the key while you speak, let go to paste.": {
+      "comment": "Subtitle of the dictation mode setting in hold mode.",
+      "extractionState": "extracted_with_value"
+    },
+    "Hold the shortcut while you speak. Let go to paste. Best for quick notes.": {
+      "comment": "Setup mode card detail.",
+      "extractionState": "extracted_with_value"
+    },
+    "Hold to dictate": {
+      "comment": "Dictation mode option: hold the shortcut while speaking.",
+      "extractionState": "extracted_with_value"
+    },
+    "Hold to talk": {
+      "comment": "Setup mode card title: hold the shortcut while speaking.",
+      "extractionState": "extracted_with_value"
+    },
+    "Hold your shortcut, speak, let go. The text lands where you’re typing.": {
+      "comment": "Welcome screen feature card detail.",
+      "extractionState": "extracted_with_value"
+    },
+    "Hold ⌘, ⌥ or ⌃ with another key.": {
+      "comment": "Hint shown when the recorded paste shortcut is rejected.",
+      "extractionState": "extracted_with_value"
+    },
+    "Idle": {
+      "comment": "Dictation state: nothing is happening.",
+      "extractionState": "extracted_with_value"
+    },
+    "Import or export": {
+      "comment": "Tooltip on the dictionary menu.",
+      "extractionState": "extracted_with_value"
+    },
+    "Imported %lld words.": {
+      "comment": "Alert after importing a dictionary. The placeholder is how many words were imported.",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Imported %lld word."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Imported %lld words."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Import…": {
+      "comment": "Menu item that imports a dictionary list.",
+      "extractionState": "extracted_with_value"
+    },
+    "In use": {
+      "comment": "Badge on the model row that dictation is currently using.",
+      "extractionState": "extracted_with_value"
+    },
+    "Input Monitoring": {
+      "comment": "Settings permission row, and the name of the macOS Input Monitoring pane.",
+      "extractionState": "extracted_with_value"
+    },
+    "Input Monitoring lets Murmur notice your shortcut while another app is in front.": {
+      "comment": "Lead paragraph on the input monitoring step.",
+      "extractionState": "extracted_with_value"
+    },
+    "LFM3": {
+      "comment": "A model name. Never translate.",
+      "extractionState": "extracted_with_value",
+      "shouldTranslate": false
+    },
+    "Last checked": {
+      "comment": "Label of the last update check date.",
+      "extractionState": "extracted_with_value"
+    },
+    "Launch at login": {
+      "comment": "Toggle that starts Murmur when the user logs in.",
+      "extractionState": "extracted_with_value"
+    },
+    "Launch at login: %@": {
+      "comment": "Error shown when turning launch at login on or off failed. The placeholder is the system's own reason.",
+      "extractionState": "extracted_with_value"
+    },
+    "Licence": {
+      "comment": "Link button that opens a model's licence page.",
+      "extractionState": "extracted_with_value"
+    },
+    "Liquid AI clean-up model · LFM Open License v1.0": {
+      "comment": "Acknowledgements description for LFM3.",
+      "extractionState": "extracted_with_value"
+    },
+    "Listening": {
+      "comment": "Dictation state: the microphone is recording.",
+      "extractionState": "extracted_with_value"
+    },
+    "Listening · press again to paste": {
+      "comment": "Overlay label while listening in toggle mode.",
+      "extractionState": "extracted_with_value"
+    },
+    "Listening · release to paste": {
+      "comment": "Overlay label while listening in hold mode.",
+      "extractionState": "extracted_with_value"
+    },
+    "Listening…": {
+      "comment": "Practice area placeholder while recording.",
+      "extractionState": "extracted_with_value"
+    },
+    "Local models not downloaded": {
+      "comment": "Menu header note: the models are not on disk yet.",
+      "extractionState": "extracted_with_value"
+    },
+    "Mail, Slack, Notes, your code editor…": {
+      "comment": "Setup tip listing apps dictation works in.",
+      "extractionState": "extracted_with_value"
+    },
+    "Match case": {
+      "comment": "Column header in the dictionary table: only replace when the capitals match.",
+      "extractionState": "extracted_with_value"
+    },
+    "Match case for %@": {
+      "comment": "Accessibility label of a dictionary checkbox. The placeholder is the word.",
+      "extractionState": "extracted_with_value"
+    },
+    "Match case keeps your capitals exactly. Use ••• to import a list (CSV or JSON) or export it as CSV.": {
+      "comment": "Footnote of the dictionary tab.",
+      "extractionState": "extracted_with_value"
+    },
+    "Merge": {
+      "comment": "Button that imports a dictionary without removing the existing words.",
+      "extractionState": "extracted_with_value"
+    },
+    "Merging keeps the words you already have and updates any that match. Replacing removes them first.": {
+      "comment": "Explanation in the alert shown when importing a JSON dictionary.",
+      "extractionState": "extracted_with_value"
+    },
+    "Microphone": {
+      "comment": "Settings permission row, and the name of the macOS Microphone pane.",
+      "extractionState": "extracted_with_value"
+    },
+    "Microphone access granted": {
+      "comment": "Microphone step: confirmation that the permission is in place.",
+      "extractionState": "extracted_with_value"
+    },
+    "Microphone access was denied. Turn Murmur on in System Settings › Privacy & Security › Microphone.": {
+      "comment": "Microphone step: the permission was refused.",
+      "extractionState": "extracted_with_value"
+    },
+    "Microphone changed": {
+      "comment": "Title of the dictation overlay when the audio input changed mid-recording.",
+      "extractionState": "extracted_with_value"
+    },
+    "Microphone unavailable": {
+      "comment": "Shown instead of the microphone name when the input device could not be opened.",
+      "extractionState": "extracted_with_value"
+    },
+    "Mode": {
+      "comment": "Label of the dictation mode picker.",
+      "extractionState": "extracted_with_value"
+    },
+    "Models": {
+      "comment": "Settings tab title.",
+      "extractionState": "extracted_with_value"
+    },
+    "Models not downloaded": {
+      "comment": "Setup note: the model download was skipped.",
+      "extractionState": "extracted_with_value"
+    },
+    "Models not ready": {
+      "comment": "Title of the dictation overlay when the models are still loading.",
+      "extractionState": "extracted_with_value"
+    },
+    "Murmur": {
+      "comment": "The app name. Never translate.",
+      "extractionState": "extracted_with_value",
+      "shouldTranslate": false
+    },
+    "Murmur Clean 350M": {
+      "comment": "A model name. Never translate.",
+      "extractionState": "extracted_with_value",
+      "shouldTranslate": false
+    },
+    "Murmur app icon": {
+      "comment": "Accessibility label of the app icon.",
+      "extractionState": "extracted_with_value"
+    },
+    "Murmur can’t use the microphone.": {
+      "comment": "Message in the dictation overlay when microphone permission was refused.",
+      "extractionState": "extracted_with_value"
+    },
+    "Murmur can’t use the microphone. Allow it in System Settings › Privacy & Security › Microphone.": {
+      "comment": "Error shown when microphone permission was refused.",
+      "extractionState": "extracted_with_value"
+    },
+    "Murmur is busy with another dictation. Try again in a moment.": {
+      "comment": "Error shown when a dictation is started while one is already running.",
+      "extractionState": "extracted_with_value"
+    },
+    "Murmur is free and open source under the MIT License.": {
+      "comment": "Subtitle of the source code row.",
+      "extractionState": "extracted_with_value"
+    },
+    "Murmur is still setting up its local models.": {
+      "comment": "Message in the dictation overlay when the models are still loading.",
+      "extractionState": "extracted_with_value"
+    },
+    "Murmur is still setting up its local models. Try again in a moment.": {
+      "comment": "Error shown when dictation starts before the models finished loading.",
+      "extractionState": "extracted_with_value"
+    },
+    "Murmur listens only while you hold your dictation shortcut.": {
+      "comment": "Subtitle in the illustration of the macOS microphone permission prompt.",
+      "extractionState": "extracted_with_value"
+    },
+    "Murmur lives in your menu bar": {
+      "comment": "Setup tip title.",
+      "extractionState": "extracted_with_value"
+    },
+    "Murmur needs your microphone to hear you while you dictate. It only listens while you hold your dictation shortcut.": {
+      "comment": "Lead paragraph on the microphone step.",
+      "extractionState": "extracted_with_value"
+    },
+    "Murmur · %@": {
+      "comment": "Accessibility label of the menu-bar item: the app name, a middle dot, then the current state such as Listening.",
+      "extractionState": "extracted_with_value"
+    },
+    "NVIDIA speech recognition models · CC BY 4.0": {
+      "comment": "Acknowledgements description for the Parakeet models.",
+      "extractionState": "extracted_with_value"
+    },
+    "Needed": {
+      "comment": "Status pill: the user still has to grant this permission or download this model.",
+      "extractionState": "extracted_with_value"
+    },
+    "Never": {
+      "comment": "Shown as the last update check time when Murmur has never checked.",
+      "extractionState": "extracted_with_value"
+    },
+    "No matches": {
+      "comment": "Shown when the dictionary search finds nothing.",
+      "extractionState": "extracted_with_value"
+    },
+    "No mic": {
+      "comment": "Title of the dictation overlay when no microphone was found.",
+      "extractionState": "extracted_with_value"
+    },
+    "No mic access": {
+      "comment": "Title of the dictation overlay when microphone permission was refused.",
+      "extractionState": "extracted_with_value"
+    },
+    "No microphone found. Pick an input in System Settings › Sound.": {
+      "comment": "Error shown when no usable microphone exists.",
+      "extractionState": "extracted_with_value"
+    },
+    "No microphone found. Pick an input.": {
+      "comment": "Message in the dictation overlay when no microphone was found.",
+      "extractionState": "extracted_with_value"
+    },
+    "No words yet": {
+      "comment": "Dictionary empty state title.",
+      "extractionState": "extracted_with_value"
+    },
+    "Not downloaded": {
+      "comment": "Status pill: the model has not been downloaded yet.",
+      "extractionState": "extracted_with_value"
+    },
+    "Notice when you hold the %@ key.": {
+      "comment": "Permission subtitle. The placeholder is the dictation shortcut, such as fn.",
+      "extractionState": "extracted_with_value"
+    },
+    "OK": {
+      "comment": "Button that dismisses an alert.",
+      "extractionState": "extracted_with_value"
+    },
+    "On": {
+      "comment": "Column header in the dictionary table: whether the entry is active.",
+      "extractionState": "extracted_with_value"
+    },
+    "On-device and private.": {
+      "comment": "Bold lead-in of the privacy banner.",
+      "extractionState": "extracted_with_value"
+    },
+    "On-device inference for the clean-up model · MIT": {
+      "comment": "Acknowledgements description for llama.cpp.",
+      "extractionState": "extracted_with_value"
+    },
+    "One quick relaunch.": {
+      "comment": "Bold lead-in of the relaunch banner.",
+      "extractionState": "extracted_with_value"
+    },
+    "Open": {
+      "comment": "Link button that opens a licence page in the browser.",
+      "extractionState": "extracted_with_value"
+    },
+    "Open Murmur": {
+      "comment": "Button in the dictation overlay that brings the app forward.",
+      "extractionState": "extracted_with_value"
+    },
+    "Open Settings": {
+      "comment": "Button in the dictation overlay that opens System Settings.",
+      "extractionState": "extracted_with_value"
+    },
+    "Open System Settings": {
+      "comment": "Setup footer: open the macOS privacy pane.",
+      "extractionState": "extracted_with_value"
+    },
+    "Open source": {
+      "comment": "Section header in About.",
+      "extractionState": "extracted_with_value"
+    },
+    "Opens in your browser": {
+      "comment": "Accessibility hint on a link button.",
+      "extractionState": "extracted_with_value"
+    },
+    "Output": {
+      "comment": "Section header in Settings.",
+      "extractionState": "extracted_with_value"
+    },
+    "PRACTICE AREA": {
+      "comment": "Heading above the practice result in setup.",
+      "extractionState": "extracted_with_value"
+    },
+    "Parakeet TDT 0.6B v3": {
+      "comment": "A model name. Never translate.",
+      "extractionState": "extracted_with_value",
+      "shouldTranslate": false
+    },
+    "Parakeet Ultra": {
+      "comment": "A model name. Never translate.",
+      "extractionState": "extracted_with_value",
+      "shouldTranslate": false
+    },
+    "Paste Last Dictation": {
+      "comment": "Menu row that pastes the previous dictation again.",
+      "extractionState": "extracted_with_value"
+    },
+    "Paste a Hugging Face model page that has GGUF files. Murmur downloads one file and runs it on your Mac. Check the model’s licence on its page first.": {
+      "comment": "Description at the top of the custom clean-up model sheet.",
+      "extractionState": "extracted_with_value"
+    },
+    "Paste into the active app": {
+      "comment": "Output option: paste the text into the frontmost app.",
+      "extractionState": "extracted_with_value"
+    },
+    "Paste last dictation": {
+      "comment": "Label of the paste-last-dictation shortcut setting.",
+      "extractionState": "extracted_with_value"
+    },
+    "Paste text into other apps.": {
+      "comment": "Subtitle of the accessibility permission row.",
+      "extractionState": "extracted_with_value"
+    },
+    "Pasted": {
+      "comment": "Overlay label after a dictation was pasted into the frontmost app.",
+      "extractionState": "extracted_with_value"
+    },
+    "Pastes your last dictation again, without recording.": {
+      "comment": "Subtitle of the paste-last-dictation shortcut setting.",
+      "extractionState": "extracted_with_value"
+    },
+    "Pending": {
+      "comment": "Permission state: the user has not answered yet.",
+      "extractionState": "extracted_with_value"
+    },
+    "Permissions": {
+      "comment": "Section header in Settings.",
+      "extractionState": "extracted_with_value"
+    },
+    "Pick how you start dictating. You can change this later in Settings.": {
+      "comment": "Lead paragraph on the shortcut step.",
+      "extractionState": "extracted_with_value"
+    },
+    "Pick your models and download them once. Dictation then works offline.": {
+      "comment": "Lead paragraph on the models step.",
+      "extractionState": "extracted_with_value"
+    },
+    "Play sounds": {
+      "comment": "Toggle for the start and stop sounds.",
+      "extractionState": "extracted_with_value"
+    },
+    "Post-trained v3 by moondream · CC BY 4.0": {
+      "comment": "Subtitle of the Parakeet Ultra model row in About.",
+      "extractionState": "extracted_with_value"
+    },
+    "Preparing": {
+      "comment": "Dictation state: the models are loading.",
+      "extractionState": "extracted_with_value"
+    },
+    "Preparing Local Models": {
+      "comment": "Banner title in the menu while the models download.",
+      "extractionState": "extracted_with_value"
+    },
+    "Press": {
+      "comment": "Menu header before the shortcut keycaps, as in “Press ⌥V to dictate”.",
+      "extractionState": "extracted_with_value"
+    },
+    "Press a key…": {
+      "comment": "Setup shortcut step: waiting for a key.",
+      "extractionState": "extracted_with_value"
+    },
+    "Press once to start, again to stop.": {
+      "comment": "Subtitle of the dictation mode setting in toggle mode.",
+      "extractionState": "extracted_with_value"
+    },
+    "Press once to start, again to stop. Best for longer dictation.": {
+      "comment": "Setup mode card detail.",
+      "extractionState": "extracted_with_value"
+    },
+    "Press the key or combination you want. Esc cancels.": {
+      "comment": "Tooltip on the shortcut recorder while it waits for a key.",
+      "extractionState": "extracted_with_value"
+    },
+    "Press the key or combination you want… Esc cancels.": {
+      "comment": "Hint under the shortcut recorder while it waits for a key.",
+      "extractionState": "extracted_with_value"
+    },
+    "Press to toggle": {
+      "comment": "Setup mode card title: press once to start and again to stop.",
+      "extractionState": "extracted_with_value"
+    },
+    "Privacy & Security": {
+      "comment": "Breadcrumb in the illustration of System Settings.",
+      "extractionState": "extracted_with_value"
+    },
+    "Private by design": {
+      "comment": "Welcome screen feature card title.",
+      "extractionState": "extracted_with_value"
+    },
+    "Private dictation for your Mac. Nothing leaves your machine.": {
+      "comment": "Tagline in About.",
+      "extractionState": "extracted_with_value"
+    },
+    "Queued. Starts after Parakeet.": {
+      "comment": "Model row note: this download waits for the speech model.",
+      "extractionState": "extracted_with_value"
+    },
+    "Quit Murmur": {
+      "comment": "Menu row that quits the app.",
+      "extractionState": "extracted_with_value"
+    },
+    "Reached the 5-minute limit": {
+      "comment": "Notice shown when a recording hit Murmur's maximum length and was stopped automatically.",
+      "extractionState": "extracted_with_value"
+    },
+    "Ready": {
+      "comment": "Status pill: the model is downloaded and ready to use.",
+      "extractionState": "extracted_with_value"
+    },
+    "Record shortcut": {
+      "comment": "Accessibility label of the shortcut recorder button.",
+      "extractionState": "extracted_with_value"
+    },
+    "Recording shortcut, press a key": {
+      "comment": "Accessibility label of the shortcut recorder while it waits for a key.",
+      "extractionState": "extracted_with_value"
+    },
+    "Recording stopped": {
+      "comment": "Menu banner title when a recording was stopped automatically.",
+      "extractionState": "extracted_with_value"
+    },
+    "Record…": {
+      "comment": "Setup shortcut step: start recording a shortcut.",
+      "extractionState": "extracted_with_value"
+    },
+    "Relaunch Murmur": {
+      "comment": "Setup footer: restart the app so macOS applies the input monitoring permission.",
+      "extractionState": "extracted_with_value"
+    },
+    "Remove": {
+      "comment": "Button that deletes a downloaded model.",
+      "extractionState": "extracted_with_value"
+    },
+    "Remove %@?": {
+      "comment": "Confirmation before deleting a model. The placeholder is the model name.",
+      "extractionState": "extracted_with_value"
+    },
+    "Remove selected word": {
+      "comment": "Tooltip on the button that deletes the selected dictionary entry.",
+      "extractionState": "extracted_with_value"
+    },
+    "Removes filler words and fixes punctuation, on your Mac.": {
+      "comment": "Subtitle of the clean-up toggle.",
+      "extractionState": "extracted_with_value"
+    },
+    "Replace": {
+      "comment": "Button that replaces the whole dictionary with the imported one.",
+      "extractionState": "extracted_with_value"
+    },
+    "Replace with": {
+      "comment": "Column header in the dictionary table.",
+      "extractionState": "extracted_with_value"
+    },
+    "Replace your dictionary or merge?": {
+      "comment": "Title of the alert shown when importing a JSON dictionary.",
+      "extractionState": "extracted_with_value"
+    },
+    "Reset": {
+      "comment": "Setup shortcut step: restore the default shortcut.",
+      "extractionState": "extracted_with_value"
+    },
+    "Reset to default": {
+      "comment": "Button that restores the default system prompt.",
+      "extractionState": "extracted_with_value"
+    },
+    "Reset to fn": {
+      "comment": "Tooltip on the button that restores the default dictation shortcut.",
+      "extractionState": "extracted_with_value"
+    },
+    "Reset to ⌥⇧V": {
+      "comment": "Tooltip on the button that restores the default paste-last-dictation shortcut.",
+      "extractionState": "extracted_with_value"
+    },
+    "Retry": {
+      "comment": "Setup footer: try the model download again.",
+      "extractionState": "extracted_with_value"
+    },
+    "Run any GGUF model from Hugging Face with your own prompt, for example one that covers more languages.": {
+      "comment": "Subtitle of the custom clean-up model row.",
+      "extractionState": "extracted_with_value"
+    },
+    "Save and download": {
+      "comment": "Button that saves the custom model and downloads it.",
+      "extractionState": "extracted_with_value"
+    },
+    "Say something to check the level.": {
+      "comment": "Microphone step: prompt to test the input level.",
+      "extractionState": "extracted_with_value"
+    },
+    "Search": {
+      "comment": "Placeholder of the dictionary search field.",
+      "extractionState": "extracted_with_value"
+    },
+    "Search dictionary": {
+      "comment": "Accessibility label of the dictionary search field.",
+      "extractionState": "extracted_with_value"
+    },
+    "Settings, history and models are there.": {
+      "comment": "Setup tip detail.",
+      "extractionState": "extracted_with_value"
+    },
+    "Settings…": {
+      "comment": "Menu row that opens the Settings window.",
+      "extractionState": "extracted_with_value"
+    },
+    "Setup & Permissions…": {
+      "comment": "Menu row that reopens the setup steps.",
+      "extractionState": "extracted_with_value"
+    },
+    "Setup needed": {
+      "comment": "Status badge in the menu: permissions or models are missing.",
+      "extractionState": "extracted_with_value"
+    },
+    "Setup takes about two minutes: three permissions, a shortcut and two local models.": {
+      "comment": "Footnote on the welcome screen.",
+      "extractionState": "extracted_with_value"
+    },
+    "Shortcut": {
+      "comment": "Section header in Settings.",
+      "extractionState": "extracted_with_value"
+    },
+    "Show in Finder": {
+      "comment": "Button that reveals a model folder in Finder.",
+      "extractionState": "extracted_with_value"
+    },
+    "Skip for now": {
+      "comment": "Setup footer: skip the model download.",
+      "extractionState": "extracted_with_value"
+    },
+    "Software updates · MIT": {
+      "comment": "Acknowledgements description for Sparkle.",
+      "extractionState": "extracted_with_value"
+    },
+    "Something went wrong.": {
+      "comment": "Fallback message in the dictation overlay when no error text is available.",
+      "extractionState": "extracted_with_value"
+    },
+    "Source code": {
+      "comment": "Label of the link to the source repository.",
+      "extractionState": "extracted_with_value"
+    },
+    "Space used": {
+      "comment": "Label of the total disk usage row.",
+      "extractionState": "extracted_with_value"
+    },
+    "Speak naturally. Murmur transcribes and tidies up your words, then types them into whatever app you’re using.": {
+      "comment": "Lead paragraph on the welcome screen.",
+      "extractionState": "extracted_with_value"
+    },
+    "Speech model": {
+      "comment": "Name of the speech recognition model row.",
+      "extractionState": "extracted_with_value"
+    },
+    "Speech models": {
+      "comment": "Label of the speech model folder row.",
+      "extractionState": "extracted_with_value"
+    },
+    "Speech recognition": {
+      "comment": "Section header in Settings listing the speech models.",
+      "extractionState": "extracted_with_value"
+    },
+    "Speech recognition and clean-up run entirely on this Mac.": {
+      "comment": "Welcome screen feature card detail.",
+      "extractionState": "extracted_with_value"
+    },
+    "Speech recognition and clean-up, about %@ in total.": {
+      "comment": "Setup note. The placeholder is a total file size such as 1.5 GB.",
+      "extractionState": "extracted_with_value"
+    },
+    "Speech recognition by NVIDIA · CC BY 4.0": {
+      "comment": "Subtitle of the Parakeet model row in About.",
+      "extractionState": "extracted_with_value"
+    },
+    "Starting…": {
+      "comment": "Shown in the menu while a model download is starting.",
+      "extractionState": "extracted_with_value"
+    },
+    "Status: %@": {
+      "comment": "Accessibility label of a status pill. The placeholder is the pill's own text.",
+      "extractionState": "extracted_with_value"
+    },
+    "Step %lld of %lld": {
+      "comment": "Accessibility label of the setup progress dots.",
+      "extractionState": "extracted_with_value"
+    },
+    "Step 2 of 7 · Permissions": {
+      "comment": "Eyebrow above the step title: which setup step this is.",
+      "extractionState": "extracted_with_value"
+    },
+    "Step 3 of 7 · Permissions": {
+      "comment": "Eyebrow above the step title: which setup step this is.",
+      "extractionState": "extracted_with_value"
+    },
+    "Step 4 of 7 · Permissions": {
+      "comment": "Eyebrow above the step title: which setup step this is.",
+      "extractionState": "extracted_with_value"
+    },
+    "Step 5 of 7 · Shortcut": {
+      "comment": "Eyebrow above the step title: which setup step this is.",
+      "extractionState": "extracted_with_value"
+    },
+    "Step 6 of 7 · Local models": {
+      "comment": "Eyebrow above the step title: which setup step this is.",
+      "extractionState": "extracted_with_value"
+    },
+    "Step 7 of 7 · Finish": {
+      "comment": "Eyebrow above the step title: which setup step this is.",
+      "extractionState": "extracted_with_value"
+    },
+    "Step 7 of 7 · Try it": {
+      "comment": "Eyebrow above the step title: which setup step this is.",
+      "extractionState": "extracted_with_value"
+    },
+    "Stop the download. It resumes from where it stopped next time.": {
+      "comment": "Tooltip on the button that stops a model download.",
+      "extractionState": "extracted_with_value"
+    },
+    "Storage": {
+      "comment": "Section header in Settings.",
+      "extractionState": "extracted_with_value"
+    },
+    "Stored on this Mac": {
+      "comment": "Model row note: the model file is on disk.",
+      "extractionState": "extracted_with_value"
+    },
+    "Strictness": {
+      "comment": "Label of the clean-up strictness picker.",
+      "extractionState": "extracted_with_value"
+    },
+    "System prompt": {
+      "comment": "Label of the system prompt editor.",
+      "extractionState": "extracted_with_value"
+    },
+    "That doesn’t look like a Hugging Face link. Paste a model page URL or owner/name.": {
+      "comment": "Error in the custom clean-up sheet when the pasted link is not a Hugging Face model page.",
+      "extractionState": "extracted_with_value"
+    },
+    "That’s it. Murmur asks once and remembers.": {
+      "comment": "Setup step: the last instruction on the microphone step.",
+      "extractionState": "extracted_with_value"
+    },
+    "The microphone changed while Murmur was listening. Try again.": {
+      "comment": "Error shown when the audio input route changed mid-recording.",
+      "extractionState": "extracted_with_value"
+    },
+    "The model changed while Murmur was working. Try again.": {
+      "comment": "Error shown when a model switch interrupted a dictation.",
+      "extractionState": "extracted_with_value"
+    },
+    "This is a large file. Smaller models respond faster, which matters for dictation.": {
+      "comment": "Warning shown when the chosen GGUF file is very large.",
+      "extractionState": "extracted_with_value"
+    },
+    "Tidying": {
+      "comment": "Dictation state: the clean-up model is rewriting the transcript.",
+      "extractionState": "extracted_with_value"
+    },
+    "Tidying…": {
+      "comment": "Overlay label while the clean-up model rewrites the transcript.",
+      "extractionState": "extracted_with_value"
+    },
+    "Transcribing": {
+      "comment": "Dictation state: speech is being turned into text.",
+      "extractionState": "extracted_with_value"
+    },
+    "Transcribing…": {
+      "comment": "Overlay label while speech is being turned into text.",
+      "extractionState": "extracted_with_value"
+    },
+    "Turn on": {
+      "comment": "Label in the illustration of System Settings, next to the app the user must switch on.",
+      "extractionState": "extracted_with_value"
+    },
+    "Turn on %@ under Input Monitoring.": {
+      "comment": "Setup instruction. The placeholder is the app name.",
+      "extractionState": "extracted_with_value"
+    },
+    "Updates": {
+      "comment": "Section header in About.",
+      "extractionState": "extracted_with_value"
+    },
+    "Use": {
+      "comment": "Button on a model row that switches dictation to that model.",
+      "extractionState": "extracted_with_value"
+    },
+    "Version %@ (%@)": {
+      "comment": "Version line in About: the marketing version, then the build number in brackets.",
+      "extractionState": "extracted_with_value"
+    },
+    "View": {
+      "comment": "Button in About that opens the acknowledgements sheet.",
+      "extractionState": "extracted_with_value"
+    },
+    "Waiting for System Settings": {
+      "comment": "Status pill: the user was sent to System Settings and Murmur is waiting for the switch.",
+      "extractionState": "extracted_with_value"
+    },
+    "Welcome to Murmur": {
+      "comment": "Title of the setup window, also used as its accessibility title.",
+      "extractionState": "extracted_with_value"
+    },
+    "Working…": {
+      "comment": "Status badge in the menu: Murmur is transcribing or tidying.",
+      "extractionState": "extracted_with_value"
+    },
+    "Works in every app": {
+      "comment": "Welcome screen feature card title.",
+      "extractionState": "extracted_with_value"
+    },
+    "Works offline": {
+      "comment": "Welcome screen feature card title.",
+      "extractionState": "extracted_with_value"
+    },
+    "You appear to be offline. Connect to the internet and retry.": {
+      "comment": "Model download failed because there is no connection.",
+      "extractionState": "extracted_with_value"
+    },
+    "You can change this any time in System Settings › Privacy & Security › Microphone.": {
+      "comment": "Microphone step: where to change the permission later.",
+      "extractionState": "extracted_with_value"
+    },
+    "You can download it again at any time. Dictation won’t work until the models are back.": {
+      "comment": "Message of the confirmation before deleting a model.",
+      "extractionState": "extracted_with_value"
+    },
+    "You said: “": {
+      "comment": "Start of the practice result, before the words the user dictated. Ends with an opening curly quote.",
+      "extractionState": "extracted_with_value"
+    },
+    "You skipped the model download, so dictation is off for now. Download the models any time in Settings › Models and Murmur starts working.": {
+      "comment": "Lead paragraph when the model download was skipped.",
+      "extractionState": "extracted_with_value"
+    },
+    "Your dictated text will appear here.": {
+      "comment": "Practice area placeholder before the first dictation.",
+      "extractionState": "extracted_with_value"
+    },
+    "Your dictation is sent as the user message. %@ is replaced with your dictionary’s spellings, and a line containing it is left out when the dictionary is empty.": {
+      "comment": "Note under the system prompt editor. The placeholder is the vocabulary token.",
+      "extractionState": "extracted_with_value"
+    },
+    "Your dictionary now has %lld words.": {
+      "comment": "Alert after importing a dictionary. The placeholder is how many words the dictionary holds now.",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Your dictionary now has %lld word."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Your dictionary now has %lld words."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "You’re all set": {
+      "comment": "Setup step title for the practice step.",
+      "extractionState": "extracted_with_value"
+    },
+    "fn (%@ is the default because it rarely clashes with other apps. If it opens the emoji picker or starts system dictation, set System Settings › Keyboard › “Press %@ to” to “Do Nothing”.": {
+      "comment": "Setup note about the fn key. Both placeholders are the Globe key symbol.",
+      "extractionState": "extracted_with_value"
+    },
+    "heard": {
+      "comment": "Placeholder in the dictionary table: the word Murmur mishears.",
+      "extractionState": "extracted_with_value"
+    },
+    "https://huggingface.co/owner/model-GGUF": {
+      "comment": "An example URL used as a text field placeholder. Never translate.",
+      "extractionState": "extracted_with_value",
+      "shouldTranslate": false
+    },
+    "macOS shows a prompt. Choose %@.": {
+      "comment": "Setup instruction. The placeholder is the name of a button in the macOS prompt.",
+      "extractionState": "extracted_with_value"
+    },
+    "replacement": {
+      "comment": "Placeholder in the dictionary table: the word to use instead.",
+      "extractionState": "extracted_with_value"
+    },
+    "this word": {
+      "comment": "Stands in for a dictionary entry's word in accessibility labels when the field is empty.",
+      "extractionState": "extracted_with_value"
+    },
+    "to dictate": {
+      "comment": "Menu header after the shortcut keycaps.",
+      "extractionState": "extracted_with_value"
+    },
+    "“Murmur” would like to access the microphone.": {
+      "comment": "Illustration of the macOS microphone permission prompt.",
+      "extractionState": "extracted_with_value"
+    },
+    "”": {
+      "comment": "Closing curly quote that ends the words the user dictated in the practice result.",
+      "extractionState": "extracted_with_value"
+    }
+  },
+  "version": "1.0"
+}

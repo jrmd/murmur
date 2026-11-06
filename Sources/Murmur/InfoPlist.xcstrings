@@ -1,0 +1,18 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "The sentence macOS shows in the microphone permission prompt. Keep it short.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Murmur uses the microphone to transcribe your dictation locally."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -71,7 +71,7 @@ struct GlassCapsuleStyle: ButtonStyle {
 }
 
 struct PrimaryButton: View {
-    let title: String
+    let title: LocalizedStringKey
     var symbol: String?
     var enabled = true
     let action: () -> Void
@@ -92,15 +92,16 @@ struct PrimaryButton: View {
 enum PillKind {
     case needed, waiting, granted, downloading, notDownloaded, ready, denied
 
+    /// Already localized, so it can also be read out in an accessibility label.
     var label: String {
         switch self {
-        case .needed: "Needed"
-        case .waiting: "Waiting for System Settings"
-        case .granted: "Granted"
-        case .downloading: "Downloading"
-        case .notDownloaded: "Not downloaded"
-        case .ready: "Ready"
-        case .denied: "Denied"
+        case .needed: String(localized: "Needed", comment: "Status pill: the user still has to grant this permission or download this model.")
+        case .waiting: String(localized: "Waiting for System Settings", comment: "Status pill: the user was sent to System Settings and Murmur is waiting for the switch.")
+        case .granted: String(localized: "Granted", comment: "Status pill: the permission was granted.")
+        case .downloading: String(localized: "Downloading", comment: "Status pill: the model is downloading.")
+        case .notDownloaded: String(localized: "Not downloaded", comment: "Status pill: the model has not been downloaded yet.")
+        case .ready: String(localized: "Ready", comment: "Status pill: the model is downloaded and ready to use.")
+        case .denied: String(localized: "Denied", comment: "Status pill: the permission was refused.")
         }
     }
 }
@@ -163,8 +164,8 @@ struct StatusPill: View {
 struct StepHeader: View {
     let symbol: String
     var customIcon: AnyView?
-    let eyebrow: String
-    let title: String
+    let eyebrow: LocalizedStringKey
+    let title: LocalizedStringKey
     var pill: PillKind?
 
     var body: some View {
@@ -180,7 +181,7 @@ struct StepHeader: View {
             .frame(width: 56, height: 56)
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(eyebrow.uppercased()).font(.system(size: 11.5, weight: .semibold)).tracking(0.6).foregroundStyle(OB.tertiary)
+                Text(eyebrow).textCase(.uppercase).font(.system(size: 11.5, weight: .semibold)).tracking(0.6).foregroundStyle(OB.tertiary)
                 Text(title).font(.system(size: 28, weight: .bold)).tracking(-0.6).foregroundStyle(OB.text)
             }
             Spacer(minLength: 12)
@@ -192,7 +193,7 @@ struct StepHeader: View {
 struct Lead: View {
     let text: Text
     init(_ text: Text) { self.text = text }
-    init(_ string: String) { self.text = Text(string) }
+    init(_ key: LocalizedStringKey) { self.text = Text(key) }
     var body: some View {
         text.font(.system(size: 15)).foregroundStyle(OB.secondary).lineSpacing(3.5)
             .frame(maxWidth: 600, alignment: .leading).fixedSize(horizontal: false, vertical: true)
@@ -236,10 +237,10 @@ struct NumberedStep: View {
                     Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
                 case .current:
                     Circle().fill(Color.murmurCoral).overlay(Circle().stroke(Color.murmurCoral.opacity(0.28), lineWidth: 3))
-                    Text("\(number)").font(.system(size: 11.5, weight: .bold)).foregroundStyle(.white)
+                    Text(verbatim: String(number)).font(.system(size: 11.5, weight: .bold)).foregroundStyle(.white)
                 case .future:
                     Circle().fill(OB.cardFill).overlay(Circle().strokeBorder(OB.cardStroke, lineWidth: 1))
-                    Text("\(number)").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(OB.secondary)
+                    Text(verbatim: String(number)).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(OB.secondary)
                 }
             }
             .frame(width: 22, height: 22)
@@ -286,8 +287,8 @@ struct Keycap: View {
 
 /// Stylised mini System Settings window used on the permission screens.
 struct SettingsIllustration: View {
-    let pane: String
-    var caption = "Allow the apps below to control your computer."
+    let pane: LocalizedStringKey
+    var caption: LocalizedStringKey = "Allow the apps below to control your computer."
     let murmurOn: Bool
     var highlight = true
 
@@ -354,7 +355,7 @@ struct MiniToggle: View {
 /// Dark glass listening capsule; the real dictation HUD can reuse this.
 struct ListeningHUD: View {
     let level: Float
-    let label: String
+    let label: LocalizedStringKey
     var body: some View {
         HStack(spacing: 10) {
             Circle().fill(Color.murmurCoral).frame(width: 9, height: 9).shadow(color: .murmurCoral.opacity(0.8), radius: 4).accessibilityHidden(true)
