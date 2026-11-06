@@ -201,14 +201,48 @@ public enum TidyPrompt {
         return String(trimmed[end.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// LFM3 chat template with thinking disabled.
+    /// LFM3 sometimes answers and then keeps talking: a fresh paragraph of reasoning, or a parenthetical aside about
+    /// its own edit. A cleanup is one block of prose, so the answer ends where that aside begins.
+    static func trimmingCommentary(_ text: String) -> String {
+        var end = text.range(of: "\n\n")?.lowerBound ?? text.endIndex
+        var search = text.startIndex
+        while let aside = text.range(of: " (", range: search..<end) {
+            if commentaryOpeners.contains(where: { text[aside.upperBound...].lowercased().hasPrefix($0) }) { end = aside.lowerBound; break }
+            search = aside.upperBound
+        }
+        return String(text[..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The words LFM3 opens a parenthetical aside with when it starts commenting on its own answer.
+    private static let commentaryOpeners = ["wait", "or:", "note", "actually", "hmm", "let me", "i mean", "the user"]
+
+    /// True when the text ends in a phrase it has already repeated: how a small model loops instead of stopping.
+    static func isRepeating(_ text: String, window: Int = 24, repeats: Int = 3) -> Bool {
+        let characters = Array(text)
+        guard characters.count >= window * repeats else { return false }
+        let tail = String(characters.suffix(window))
+        var count = 0, index = 0
+        while index + window <= characters.count {
+            if String(characters[index..<(index + window)]) == tail { count += 1; index += window } else { index += 1 }
+        }
+        return count >= repeats
+    }
+
+    /// Whether a run that hit the token limit still produced a finished cleanup rather than a half-written thought.
+    static func isCompleteCleanup(_ text: String) -> Bool {
+        guard let last = text.last else { return false }
+        return ".!?".contains(last)
+    }
+
+    /// LFM3 chat template with thinking disabled. The worked example sits in the system turn: as a fake
+    /// user/assistant exchange the model read it as conversation history and kept talking after its answer.
     static func segments(text: String, dictionary: [DictionaryEntry], level: CleanupLevel = .balanced) -> [Segment] {
         // One worked example anchors the "edit, don't rewrite" behaviour for a small model.
-        let example = "<|im_start|>user\nuh so we need to send the invoice to acme by friday actually no make that thursday and could you copy finance<|im_end|>\n<|im_start|>assistant\n<think></think>So we need to send the invoice to Acme by Thursday, and could you copy Finance?<|im_end|>\n"
+        let example = "\n\nExample dictation: uh so we need to send the invoice to acme by friday actually no make that thursday and could you copy finance\nExample cleaned text: So we need to send the invoice to Acme by Thursday, and could you copy Finance?"
         return [
             Segment(text: "<|im_start|>system\n", parseSpecial: true),
-            Segment(text: system(dictionary: dictionary, level: level), parseSpecial: false),
-            Segment(text: "<|im_end|>\n" + example + "<|im_start|>user\n", parseSpecial: true),
+            Segment(text: system(dictionary: dictionary, level: level) + example, parseSpecial: false),
+            Segment(text: "<|im_end|>\n<|im_start|>user\n", parseSpecial: true),
             Segment(text: text, parseSpecial: false),
             Segment(text: "<|im_end|>\n<|im_start|>assistant\n<think></think>", parseSpecial: true),
         ]
@@ -407,14 +441,20 @@ public actor LlamaTidier: TextTidying {
             bytes.append(contentsOf: piece.prefix(Int(n)).map { UInt8(bitPattern: $0) })
             // LFM3 sometimes closes a (disabled) think block and repeats its answer; the text before the tag is the answer.
             if cleanupModel != .custom, bytes.suffix(8).elementsEqual("</think>".utf8) { bytes.removeLast(8); ended = true; break }
+            // A small model that starts looping a phrase will not stop on its own, so the loop ends the answer.
+            if cleanupModel == .lfm3, TidyPrompt.isRepeating(String(decoding: bytes, as: UTF8.self)) { ended = true; break }
             guard llama_decode(context, llama_batch_get_one(&token, 1)) == 0 else {
                 discardContext()
                 throw CoreError.message("\(cleanupModel.shortName) generation failed.")
             }
         }
-        guard ended else { throw CoreError.message("\(cleanupModel.shortName) output exceeded its token limit.") }
         var output = String(decoding: bytes, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         if cleanupModel == .custom { output = TidyPrompt.strippingThinking(output) }
+        if cleanupModel == .lfm3 { output = TidyPrompt.trimmingCommentary(output) }
+        // A run that hit the token limit still holds a usable cleanup when it stopped on a finished sentence.
+        if !ended, !(cleanupModel == .lfm3 && TidyPrompt.isCompleteCleanup(output)) {
+            throw CoreError.message("\(cleanupModel.shortName) output exceeded its token limit.")
+        }
         guard !output.isEmpty else { throw CoreError.message("\(cleanupModel.shortName) returned empty output.") }
         return output
     }
