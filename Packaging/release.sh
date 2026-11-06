@@ -1,10 +1,13 @@
 #!/bin/bash
 # Build and notarize a release locally; pass --publish to upload it to R2.
+# Overridable from the environment: DEVELOPMENT_TEAM, DEVELOPER_ID (signing identity),
+# NOTARY_PROFILE, R2_BUCKET and RELEASE_BASE_URL. The defaults are the official release values.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUCKET="${R2_BUCKET:-murmur-releases}"
 BASE_URL="${RELEASE_BASE_URL:-https://updates.murmur.bonusobjective.com}"
 PROFILE="${NOTARY_PROFILE:-murmur}"
+TEAM="${DEVELOPMENT_TEAM:-DQG6RVCCWV}"
 IDENTITY="${DEVELOPER_ID:-Developer ID Application: Jerome Duncan (DQG6RVCCWV)}"
 PUBLISH=false
 if [[ ${1:-} == --publish ]]; then PUBLISH=true; shift; fi
@@ -25,7 +28,7 @@ xcodegen generate --spec "$ROOT/project.yml"
 xcodebuild -project "$ROOT/Murmur.xcodeproj" -scheme Murmur -configuration Release \
     -destination 'generic/platform=macOS' -derivedDataPath "$ROOT/build/DerivedData" \
     -archivePath "$ARCHIVE" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$IDENTITY" \
-    DEVELOPMENT_TEAM=DQG6RVCCWV archive
+    DEVELOPMENT_TEAM="$TEAM" archive
 # The archive contains Sparkle's ad-hoc signed helpers. Sign nested code inside-out
 # before signing the framework and host app for notarization.
 SPARKLE_FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
@@ -60,6 +63,7 @@ if [[ -f "$OUT/feed/appcast.xml" ]] && /usr/bin/grep -Eq "<sparkle:version>$BUIL
 fi
 "$SPARKLE" --account murmur --download-url-prefix "$BASE_URL/" --maximum-versions 0 --maximum-deltas 0 "$OUT/feed"
 echo "Release prepared in $OUT/feed"
+echo "Versioned archive: $BASE_URL/$ZIP"
 if $PUBLISH; then
     # Use a separate cache key: checking a missing archive can otherwise cache
     # a 404 at the URL that Sparkle will subsequently use.

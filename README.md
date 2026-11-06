@@ -85,6 +85,8 @@ Please also give your build a different name and icon so it isn't mistaken for t
 
 Issues and pull requests are welcome. For anything beyond a small fix, open an issue first so we can agree on the approach. Run `swift test` before sending a change.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for building, tests, code style and the privacy principles a change has to respect.
+
 ## License
 
 Murmur is released under the [MIT License](LICENSE).

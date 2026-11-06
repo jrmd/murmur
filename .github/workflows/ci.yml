@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same branch or pull request.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: MurmurCore tests
+    # macos-26 is GitHub's Apple Silicon macOS 26 image, which ships Xcode 26.
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache SwiftPM build
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-swiftpm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swiftpm-
+
+      # TidyLiveTests skip themselves unless MURMUR_LIVE=1, so no models are
+      # downloaded here and no secrets are needed.
+      - name: swift test
+        run: swift test
+
+  build:
+    name: Build app
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      # Ad-hoc signing keeps this job free of certificates and secrets. It is
+      # enough to prove the app target compiles; it is not a distributable build.
+      - name: Build Debug
+        run: |
+          xcodebuild \
+            -project Murmur.xcodeproj \
+            -scheme Murmur \
+            -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM= \
+            build

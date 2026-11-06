@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest a change to how Murmur works.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: What are you trying to do that Murmur makes hard today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        Murmur runs entirely on the device: no accounts, no telemetry, and model downloads only from Hugging Face. Proposals that need a server are unlikely to be accepted.

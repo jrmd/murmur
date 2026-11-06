@@ -1,0 +1,83 @@
+name: Bug report
+description: Something in Murmur doesn't work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Murmur keeps your audio and text on your Mac, so please keep this issue free of anything private too.
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.1"
+    validations:
+      required: true
+
+  - type: input
+    id: chip
+    attributes:
+      label: Chip
+      placeholder: "Apple M2 Pro"
+    validations:
+      required: true
+
+  - type: input
+    id: murmur-version
+    attributes:
+      label: Murmur version
+      description: Settings → About, or the version shown in Finder's Get Info.
+      placeholder: "0.4.0 (5)"
+    validations:
+      required: true
+
+  - type: input
+    id: speech-model
+    attributes:
+      label: Speech model
+      placeholder: "Parakeet TDT 0.6B v3"
+    validations:
+      required: true
+
+  - type: input
+    id: cleanup-model
+    attributes:
+      label: Clean-up model
+      placeholder: "Murmur Clean 350M"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Hold fn
+        2. Say "hello there"
+        3. Release
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant lines from Console.app filtered by "Murmur", or a crash report.
+      render: text
+    validations:
+      required: false
