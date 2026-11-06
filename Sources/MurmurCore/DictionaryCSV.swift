@@ -4,7 +4,7 @@ import Foundation
 public extension DictionaryStore {
     func csvString() -> String {
         var lines = ["heard,replacement,match_case,enabled"]
-        for e in entries { lines.append([Self.field(e.heard), Self.field(e.replacement), e.caseSensitive ? "true" : "false", e.enabled ? "true" : "false"].joined(separator: ",")) }
+        for e in Self.persistable(entries) { lines.append([Self.field(e.heard), Self.field(e.replacement), e.caseSensitive ? "true" : "false", e.enabled ? "true" : "false"].joined(separator: ",")) }
         return lines.joined(separator: "\n") + "\n"
     }
 
@@ -15,18 +15,20 @@ public extension DictionaryStore {
     func importCSV(from url: URL) throws -> Int {
         let rows = Self.parse(try String(contentsOf: url, encoding: .utf8))
         var applied = 0
-        for (index, row) in rows.enumerated() {
-            if index == 0, row.first?.lowercased() == "heard" { continue }
-            guard row.count >= 2, !row[0].trimmingCharacters(in: .whitespaces).isEmpty else { continue }
-            let heard = row[0].trimmingCharacters(in: .whitespaces), replacement = row[1].trimmingCharacters(in: .whitespaces)
-            let match = row.count > 2 ? Self.truthy(row[2], default: false) : false
-            let on = row.count > 3 ? Self.truthy(row[3], default: true) : true
-            if var existing = entries.first(where: { $0.heard.caseInsensitiveCompare(heard) == .orderedSame }) {
-                existing.replacement = replacement; existing.caseSensitive = match; existing.enabled = on; update(existing)
-            } else {
-                add(DictionaryEntry(heard: heard, replacement: replacement, caseSensitive: match, enabled: on))
+        batching {
+            for (index, row) in rows.enumerated() {
+                if index == 0, row.first?.lowercased() == "heard" { continue }
+                guard row.count >= 2, !row[0].trimmingCharacters(in: .whitespaces).isEmpty else { continue }
+                let heard = row[0].trimmingCharacters(in: .whitespaces), replacement = row[1].trimmingCharacters(in: .whitespaces)
+                let match = row.count > 2 ? Self.truthy(row[2], default: false) : false
+                let on = row.count > 3 ? Self.truthy(row[3], default: true) : true
+                if var existing = entries.first(where: { $0.heard.caseInsensitiveCompare(heard) == .orderedSame }) {
+                    existing.replacement = replacement; existing.caseSensitive = match; existing.enabled = on; update(existing)
+                } else {
+                    add(DictionaryEntry(heard: heard, replacement: replacement, caseSensitive: match, enabled: on))
+                }
+                applied += 1
             }
-            applied += 1
         }
         return applied
     }
